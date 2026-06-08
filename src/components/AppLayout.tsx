@@ -4,6 +4,7 @@ import { LayoutDashboard, MessageCircleHeart, CalendarHeart, Quote, Trophy, List
 import { useState } from "react";
 import { BackgroundBlobs } from "./BackgroundBlobs";
 import { cn } from "@/lib/utils";
+import { useApp } from "@/lib/state";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, color: "coral" },
@@ -21,6 +22,9 @@ const nav = [
 export function AppLayout() {
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const { userProfile } = useApp();
+
+  const userInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "A";
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -80,10 +84,10 @@ export function AppLayout() {
         <div className="absolute bottom-4 left-3 right-3">
           <div className="glass rounded-2xl p-4 shadow-soft">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center font-semibold text-white">A</div>
+              <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center font-semibold text-white">{userInitial}</div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Aria Wells</p>
-                <p className="text-xs text-muted-foreground truncate">Sage Level · 1240 pts</p>
+                <p className="text-sm font-medium truncate">{userProfile.name}</p>
+                <p className="text-xs text-muted-foreground truncate">{userProfile.level} Level · {userProfile.points} pts</p>
               </div>
             </div>
           </div>
@@ -106,7 +110,7 @@ export function AppLayout() {
                 <Bell className="h-5 w-5" />
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-coral" />
               </button>
-              <div className="h-9 w-9 rounded-full gradient-purple-blue flex items-center justify-center font-semibold text-white text-sm">A</div>
+              <div className="h-9 w-9 rounded-full gradient-purple-blue flex items-center justify-center font-semibold text-white text-sm">{userInitial}</div>
             </div>
           </div>
         </header>

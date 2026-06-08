@@ -3,27 +3,55 @@ import { motion } from "framer-motion";
 import { Flame, TrendingUp, Sparkles, Smile, MessageCircleHeart, Trophy, ArrowRight, Quote as QuoteIcon } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { PageHeader } from "@/components/PageHeader";
-import { weeklyMood, quotes, challenges, moods } from "@/lib/mock-data";
+import { quotes, moods } from "@/lib/mock-data";
+import { useApp } from "@/lib/state";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Mind2Care" }] }),
   component: Dashboard,
 });
 
-const stats = [
-  { label: "Streak", value: "12", unit: "days", icon: Flame, color: "coral" },
-  { label: "Average Mood", value: "4.2", unit: "/ 5", icon: TrendingUp, color: "purple" },
-  { label: "Total Points", value: "1,240", unit: "pts", icon: Sparkles, color: "turquoise" },
-  { label: "Today's Mood", value: "🙂", unit: "Good", icon: Smile, color: "green" },
-];
-
 function Dashboard() {
+  const { userProfile, moodHistory, challenges } = useApp();
+  
   const todayQuote = quotes[0];
-  const active = challenges.find((c) => c.status === "active")!;
+  const activeChallenge = challenges.find((c) => c.status === "active") || challenges[0];
+
+  // Compute stats dynamically
+  const streak = moodHistory.length > 0 ? Math.min(30, moodHistory.length + 1) : 0;
+  
+  const averageMoodValue = moodHistory.length > 0 
+    ? (moodHistory.reduce((sum, h) => sum + h.mood.value, 0) / moodHistory.length).toFixed(1)
+    : "4.2";
+
+  const todayMoodLog = moodHistory[0];
+  const todayMoodEmoji = todayMoodLog ? todayMoodLog.mood.emoji : "🙂";
+  const todayMoodLabel = todayMoodLog ? todayMoodLog.mood.label : "Good";
+
+  const stats = [
+    { label: "Streak", value: String(streak), unit: "days", icon: Flame, color: "coral" },
+    { label: "Average Mood", value: averageMoodValue, unit: "/ 5", icon: TrendingUp, color: "purple" },
+    { label: "Total Points", value: userProfile.points.toLocaleString(), unit: "pts", icon: Sparkles, color: "turquoise" },
+    { label: "Today's Mood", value: todayMoodEmoji, unit: todayMoodLabel, icon: Smile, color: "green" },
+  ];
+
+  // Map last 7 days of mood history to weekly trend chart
+  // If we have history, map it. Otherwise map mock weekly trend
+  const defaultWeeklyMood = [
+    { day: "Mon", mood: 4 }, { day: "Tue", mood: 3 }, { day: "Wed", mood: 5 },
+    { day: "Thu", mood: 4 }, { day: "Fri", mood: 4 }, { day: "Sat", mood: 5 }, { day: "Sun", mood: 4 },
+  ];
+
+  const chartData = moodHistory.length >= 3
+    ? [...moodHistory].slice(0, 7).reverse().map((log) => ({
+        day: log.date.replace("Day ", "D"),
+        mood: log.mood.value,
+      }))
+    : defaultWeeklyMood;
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Good morning, Aria 🌸" subtitle="Here's a gentle look at your wellness today." accent="coral" />
+      <PageHeader title={`Good morning, ${userProfile.name.split(" ")[0]} 🌸`} subtitle="Here's a gentle look at your wellness today." accent="coral" />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -81,12 +109,12 @@ function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-semibold text-lg">Weekly Mood Trend</h3>
-              <p className="text-xs text-muted-foreground">Your last 7 days</p>
+              <p className="text-xs text-muted-foreground">Your last check-ins</p>
             </div>
             <span className="text-xs px-3 py-1 rounded-full glass">+8% vs last week</span>
           </div>
           <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={weeklyMood}>
+            <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} />
               <YAxis domain={[0, 5]} stroke="var(--muted-foreground)" fontSize={12} />
@@ -107,23 +135,25 @@ function Dashboard() {
       </div>
 
       {/* Active challenge */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-3xl p-6 shadow-card">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl flex items-center justify-center" style={{ background: `var(--${active.color})` }}>
-              <Trophy className="h-6 w-6" style={{ color: `var(--${active.color}-foreground)` }} />
+      {activeChallenge && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass rounded-3xl p-6 shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl flex items-center justify-center" style={{ background: `var(--${activeChallenge.color})` }}>
+                <Trophy className="h-6 w-6" style={{ color: `var(--${activeChallenge.color}-foreground)` }} />
+              </div>
+              <div>
+                <h3 className="font-semibold">{activeChallenge.title}</h3>
+                <p className="text-xs text-muted-foreground">{activeChallenge.desc}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-semibold">{active.title}</h3>
-              <p className="text-xs text-muted-foreground">{active.desc}</p>
-            </div>
+            <span className="text-sm font-semibold">{activeChallenge.progress}%</span>
           </div>
-          <span className="text-sm font-semibold">{active.progress}%</span>
-        </div>
-        <div className="h-3 rounded-full bg-muted overflow-hidden">
-          <motion.div initial={{ width: 0 }} animate={{ width: `${active.progress}%` }} transition={{ duration: 1, delay: 0.3 }} className="h-full gradient-coral-pink" />
-        </div>
-      </motion.div>
+          <div className="h-3 rounded-full bg-muted overflow-hidden">
+            <motion.div initial={{ width: 0 }} animate={{ width: `${activeChallenge.progress}%` }} transition={{ duration: 1, delay: 0.3 }} className="h-full gradient-coral-pink" />
+          </div>
+        </motion.div>
+      )}
 
       {/* Recent moods */}
       <div className="glass rounded-3xl p-6 shadow-card">

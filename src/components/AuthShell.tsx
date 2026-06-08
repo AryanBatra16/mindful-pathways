@@ -4,7 +4,7 @@ import { Sparkles } from "lucide-react";
 import { BackgroundBlobs } from "@/components/BackgroundBlobs";
 import type { ReactNode } from "react";
 
-export function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle: string; children: ReactNode; footer?: ReactNode }) {
+export function AuthShell({ title, subtitle, children, footer, onSubmit }: { title: string; subtitle: string; children: ReactNode; footer?: ReactNode; onSubmit?: (e: React.FormEvent) => void }) {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
       <BackgroundBlobs />
@@ -22,20 +22,23 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
         </Link>
         <h1 className="text-2xl font-bold text-center">{title}</h1>
         <p className="text-sm text-muted-foreground text-center mt-1">{subtitle}</p>
-        <div className="mt-6 space-y-4">{children}</div>
+        <form onSubmit={onSubmit} className="mt-6 space-y-4">{children}</form>
         {footer && <div className="mt-6 text-sm text-center text-muted-foreground">{footer}</div>}
       </motion.div>
     </div>
   );
 }
 
-export function AuthInput({ label, type = "text", placeholder }: { label: string; type?: string; placeholder?: string }) {
+export function AuthInput({ label, type = "text", placeholder, value, onChange, required }: { label: string; type?: string; placeholder?: string; value?: string; onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void; required?: boolean }) {
   return (
     <label className="block">
       <span className="text-sm font-medium">{label}</span>
       <input
         type={type}
         placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        required={required}
         className="mt-1.5 w-full px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-all"
       />
     </label>
@@ -44,7 +47,7 @@ export function AuthInput({ label, type = "text", placeholder }: { label: string
 
 export function AuthButton({ children }: { children: ReactNode }) {
   return (
-    <button className="w-full py-3 rounded-xl gradient-primary text-white font-semibold shadow-glow hover:scale-[1.02] transition-transform">
+    <button type="submit" className="w-full py-3 rounded-xl gradient-primary text-white font-semibold shadow-glow hover:scale-[1.02] transition-transform cursor-pointer">
       {children}
     </button>
   );

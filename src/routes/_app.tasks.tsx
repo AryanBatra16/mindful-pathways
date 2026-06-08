@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { Plus, Check, Trash2, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { tasks as initialTasks } from "@/lib/mock-data";
+import { useApp } from "@/lib/state";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/tasks")({
   head: () => ({ meta: [{ title: "Tasks — Mind2Care" }] }),
@@ -20,17 +21,44 @@ const columns = [
 const priorityColor: Record<string, string> = { high: "coral", medium: "purple", low: "turquoise" };
 
 function Tasks() {
-  const [tasks, setTasks] = useState(initialTasks);
+  const { tasks, addTask, deleteTask, completeTask } = useApp();
   const [open, setOpen] = useState(false);
 
-  const remove = (id: number) => setTasks((t) => t.filter((x) => x.id !== id));
-  const complete = (id: number) => setTasks((t) => t.map((x) => x.id === id ? { ...x, status: "completed" } : x));
+  // Form states
+  const [title, setTitle] = useState("");
+  const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
+  const [due, setDue] = useState("");
+  const [challenge, setChallenge] = useState<string | null>(null);
+
+  const handleAddTask = () => {
+    if (!title.trim()) {
+      toast.error("Please enter a task title.");
+      return;
+    }
+    addTask(title, priority, due, challenge);
+    toast.success("Task added! You are moving forward 🌟");
+    setTitle("");
+    setPriority("medium");
+    setDue("");
+    setChallenge(null);
+    setOpen(false);
+  };
+
+  const handleCompleteTask = (id: number) => {
+    completeTask(id);
+    toast.success("Task completed! Points awarded 💛");
+  };
+
+  const handleDeleteTask = (id: number) => {
+    deleteTask(id);
+    toast.success("Task deleted.");
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-4">
         <PageHeader title="Mindful Tasks" subtitle="Small, intentional steps that gently move you forward." accent="green" />
-        <button onClick={() => setOpen(true)} className="px-5 py-2.5 rounded-2xl gradient-primary text-white font-semibold shadow-glow hover:scale-105 transition-transform flex items-center gap-2">
+        <button onClick={() => setOpen(true)} className="px-5 py-2.5 rounded-2xl gradient-primary text-white font-semibold shadow-glow hover:scale-105 transition-transform flex items-center gap-2 cursor-pointer">
           <Plus className="h-4 w-4" /> Add Task
         </button>
       </div>
@@ -68,11 +96,11 @@ function Tasks() {
                       </div>
                       <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         {t.status !== "completed" && (
-                          <button onClick={() => complete(t.id)} className="h-6 w-6 rounded-full bg-green/30 flex items-center justify-center hover:bg-green/60">
+                          <button onClick={() => handleCompleteTask(t.id)} className="h-6 w-6 rounded-full bg-green/30 flex items-center justify-center hover:bg-green/60 cursor-pointer">
                             <Check className="h-3 w-3" />
                           </button>
                         )}
-                        <button onClick={() => remove(t.id)} className="h-6 w-6 rounded-full bg-coral/30 flex items-center justify-center hover:bg-coral/60">
+                        <button onClick={() => handleDeleteTask(t.id)} className="h-6 w-6 rounded-full bg-coral/30 flex items-center justify-center hover:bg-coral/60 cursor-pointer">
                           <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
@@ -95,22 +123,43 @@ function Tasks() {
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg">Add a mindful task</h3>
-              <button onClick={() => setOpen(false)} className="h-8 w-8 rounded-full hover:bg-muted flex items-center justify-center"><X className="h-4 w-4" /></button>
+              <button onClick={() => setOpen(false)} className="h-8 w-8 rounded-full hover:bg-muted flex items-center justify-center cursor-pointer"><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3">
-              <input placeholder="Task title" className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary outline-none" />
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Task title"
+                className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border focus:border-primary outline-none text-foreground"
+              />
               <div className="grid grid-cols-2 gap-3">
-                <select className="px-4 py-3 rounded-xl bg-muted/50 border border-border outline-none">
-                  <option>Low priority</option><option>Medium</option><option>High</option>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as any)}
+                  className="px-4 py-3 rounded-xl bg-muted/50 border border-border outline-none text-foreground"
+                >
+                  <option value="low">Low priority</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
                 </select>
-                <input type="date" className="px-4 py-3 rounded-xl bg-muted/50 border border-border outline-none" />
+                <input
+                  type="date"
+                  value={due}
+                  onChange={(e) => setDue(e.target.value)}
+                  className="px-4 py-3 rounded-xl bg-muted/50 border border-border outline-none text-foreground"
+                />
               </div>
-              <select className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border outline-none">
-                <option>No challenge linked</option>
-                <option>7-Day Gratitude Journal</option>
-                <option>Mindful Mornings</option>
+              <select
+                value={challenge || ""}
+                onChange={(e) => setChallenge(e.target.value || null)}
+                className="w-full px-4 py-3 rounded-xl bg-muted/50 border border-border outline-none text-foreground"
+              >
+                <option value="">No challenge linked</option>
+                <option value="7-Day Gratitude Journal">7-Day Gratitude Journal</option>
+                <option value="Mindful Mornings">Mindful Mornings</option>
+                <option value="Move Every Day">Move Every Day</option>
               </select>
-              <button onClick={() => setOpen(false)} className="w-full py-3 rounded-xl gradient-primary text-white font-semibold shadow-glow">Add Task</button>
+              <button onClick={handleAddTask} className="w-full py-3 rounded-xl gradient-primary text-white font-semibold shadow-glow cursor-pointer">Add Task</button>
             </div>
           </motion.div>
         </motion.div>

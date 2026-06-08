@@ -3,7 +3,9 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { Flame, Calendar } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { moods, moodHistory } from "@/lib/mock-data";
+import { moods } from "@/lib/mock-data";
+import { useApp } from "@/lib/state";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/tracker")({
   head: () => ({ meta: [{ title: "Daily Tracker — Mind2Care" }] }),
@@ -11,17 +13,31 @@ export const Route = createFileRoute("/_app/tracker")({
 });
 
 function Tracker() {
+  const { moodHistory, logMood } = useApp();
   const [selected, setSelected] = useState(1);
   const [intensity, setIntensity] = useState(60);
   const [tags, setTags] = useState<string[]>(["Work", "Calm"]);
+  const [note, setNote] = useState("");
+
   const allTags = ["Work", "Family", "Calm", "Anxious", "Grateful", "Tired", "Sleep", "Energy", "Social"];
 
-  // 35-day heatmap
-  const heatmap = Array.from({ length: 35 }).map((_, i) => ({
-    i,
-    intensity: Math.random(),
-    color: moods[Math.floor(Math.random() * moods.length)].color,
-  }));
+  // 35-day heatmap mapped from actual mood history
+  const heatmap = Array.from({ length: 35 }).map((_, i) => {
+    const historyIndex = moodHistory.length - 1 - i;
+    const log = historyIndex >= 0 ? moodHistory[historyIndex] : null;
+    return {
+      i,
+      color: log ? log.mood.color : "muted",
+      opacity: log ? 0.5 + (log.mood.value / 10) : 0.15,
+    };
+  });
+
+  const handleSaveMood = () => {
+    logMood(moods[selected], intensity, tags, note);
+    toast.success("Mood logged successfully! Keep up the good work.");
+    setNote("");
+    setTags([]);
+  };
 
   return (
     <div className="space-y-6">
@@ -38,7 +54,7 @@ function Tracker() {
                 whileHover={{ y: -4, scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setSelected(i)}
-                className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all ${selected === i ? "shadow-glow scale-105" : "glass shadow-soft"}`}
+                className={`aspect-square rounded-3xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${selected === i ? "shadow-glow scale-105" : "glass shadow-soft"}`}
                 style={selected === i ? { background: `var(--${m.color})` } : {}}
               >
                 <span className="text-3xl md:text-4xl">{m.emoji}</span>
@@ -70,7 +86,7 @@ function Tracker() {
                   <button
                     key={t}
                     onClick={() => setTags((p) => active ? p.filter((x) => x !== t) : [...p, t])}
-                    className={`px-3 py-1.5 rounded-full text-sm transition-all ${active ? "gradient-primary text-white shadow-soft" : "glass hover:shadow-soft"}`}
+                    className={`px-3 py-1.5 rounded-full text-sm transition-all cursor-pointer ${active ? "gradient-primary text-white shadow-soft" : "glass hover:shadow-soft"}`}
                   >
                     {t}
                   </button>
@@ -81,10 +97,16 @@ function Tracker() {
 
           <div className="mt-6">
             <div className="text-sm font-medium mb-2">Notes</div>
-            <textarea rows={3} placeholder="What's on your mind?" className="w-full p-4 rounded-2xl bg-muted/50 border border-border focus:border-primary outline-none resize-none" />
+            <textarea
+              rows={3}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="What's on your mind?"
+              className="w-full p-4 rounded-2xl bg-muted/50 border border-border focus:border-primary outline-none resize-none"
+            />
           </div>
 
-          <button className="mt-4 w-full py-3 rounded-2xl gradient-primary text-white font-semibold shadow-glow hover:scale-[1.01] transition-transform">
+          <button onClick={handleSaveMood} className="mt-4 w-full py-3 rounded-2xl gradient-primary text-white font-semibold shadow-glow hover:scale-[1.01] transition-transform cursor-pointer">
             Save Today's Mood
           </button>
         </div>
@@ -95,7 +117,7 @@ function Tracker() {
             <div className="inline-flex h-16 w-16 rounded-3xl gradient-coral-pink items-center justify-center shadow-glow">
               <Flame className="h-8 w-8 text-white" />
             </div>
-            <div className="text-4xl font-bold mt-3">12</div>
+            <div className="text-4xl font-bold mt-3">{moodHistory.length > 0 ? Math.min(30, moodHistory.length + 1) : 0}</div>
             <div className="text-sm text-muted-foreground">day streak</div>
             <div className="mt-3 text-xs text-muted-foreground">Best: 28 days</div>
           </motion.div>
@@ -110,7 +132,7 @@ function Tracker() {
                   animate={{ scale: 1 }}
                   transition={{ delay: c.i * 0.01 }}
                   className="aspect-square rounded-md"
-                  style={{ background: `var(--${c.color})`, opacity: 0.3 + c.intensity * 0.7 }}
+                  style={{ background: c.color === "muted" ? "var(--muted)" : `var(--${c.color})`, opacity: c.opacity }}
                 />
               ))}
             </div>

@@ -3,7 +3,8 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { Trophy, Sparkles, Check, Play } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { challenges } from "@/lib/mock-data";
+import { useApp } from "@/lib/state";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/challenges")({
   head: () => ({ meta: [{ title: "Challenges — Mind2Care" }] }),
@@ -11,8 +12,21 @@ export const Route = createFileRoute("/_app/challenges")({
 });
 
 function Challenges() {
+  const { challenges, userProfile, toggleChallenge } = useApp();
   const [tab, setTab] = useState<"active" | "available" | "completed">("active");
   const filtered = challenges.filter((c) => c.status === tab);
+
+  const activeCount = challenges.filter((c) => c.status === "active").length;
+  const completedCount = challenges.filter((c) => c.status === "completed").length;
+
+  const handleAction = (id: number, status: string, title: string) => {
+    toggleChallenge(id);
+    if (status === "available") {
+      toast.success(`Started challenge: ${title}! Let's do this 🚀`);
+    } else if (status === "active") {
+      toast.success(`Completed challenge: ${title}! Well done 🌟`);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -20,9 +34,9 @@ function Challenges() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { label: "Active", value: 2, color: "coral", icon: Play },
-          { label: "Completed", value: 1, color: "green", icon: Check },
-          { label: "Total Points", value: 1240, color: "purple", icon: Sparkles },
+          { label: "Active", value: activeCount, color: "coral", icon: Play },
+          { label: "Completed", value: completedCount, color: "green", icon: Check },
+          { label: "Total Points", value: userProfile.points, color: "purple", icon: Sparkles },
         ].map((s, i) => {
           const Icon = s.icon;
           return (
@@ -44,7 +58,7 @@ function Challenges() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-5 py-2 rounded-xl text-sm font-medium capitalize transition-all ${tab === t ? "gradient-primary text-white shadow-soft" : "hover:bg-muted"}`}
+            className={`px-5 py-2 rounded-xl text-sm font-medium capitalize transition-all cursor-pointer ${tab === t ? "gradient-primary text-white shadow-soft" : "hover:bg-muted"}`}
           >
             {t}
           </button>
@@ -80,12 +94,18 @@ function Challenges() {
                   <motion.div initial={{ width: 0 }} animate={{ width: `${c.progress}%` }} transition={{ duration: 1, delay: 0.3 + i * 0.05 }} className="h-full" style={{ background: `var(--${c.color})` }} />
                 </div>
               </div>
-              <button className={`mt-5 w-full py-2.5 rounded-xl font-medium text-sm transition-all ${c.status === "completed" ? "glass" : "gradient-primary text-white shadow-soft hover:scale-[1.02]"}`}>
-                {c.status === "active" ? "Continue" : c.status === "available" ? "Start Challenge" : "✓ Completed"}
+              <button
+                onClick={() => handleAction(c.id, c.status, c.title)}
+                className={`mt-5 w-full py-2.5 rounded-xl font-medium text-sm transition-all cursor-pointer ${c.status === "completed" ? "glass" : "gradient-primary text-white shadow-soft hover:scale-[1.02]"}`}
+              >
+                {c.status === "active" ? "Complete" : c.status === "available" ? "Start Challenge" : "✓ Completed"}
               </button>
             </div>
           </motion.div>
         ))}
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center p-8 text-muted-foreground">No challenges in this section.</div>
+        )}
       </div>
     </div>
   );

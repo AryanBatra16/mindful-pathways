@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Send, Sparkles, Phone, Heart, Smile } from "lucide-react";
 import { useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
+import { useApp } from "@/lib/state";
+import { moods } from "@/lib/mock-data";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/chatbot")({
   head: () => ({ meta: [{ title: "AI Companion — Mind2Care" }] }),
@@ -11,20 +14,41 @@ export const Route = createFileRoute("/_app/chatbot")({
 
 type Msg = { role: "user" | "assistant"; text: string; time: string };
 
-const initial: Msg[] = [
-  { role: "assistant", text: "Hi Aria, I'm so glad you stopped by 🌸 How are you feeling today?", time: "9:02" },
+const initial = (name: string): Msg[] => [
+  { role: "assistant", text: `Hi ${name}, I'm so glad you stopped by 🌸 How are you feeling today?`, time: "9:02" },
 ];
 
 const quickReplies = ["I feel great", "A bit anxious", "Tired", "Need to vent", "Just checking in"];
 const moodChips = [
-  { emoji: "😄", label: "Joyful" }, { emoji: "🙂", label: "Good" },
-  { emoji: "😐", label: "Okay" }, { emoji: "😔", label: "Low" }, { emoji: "😢", label: "Sad" },
+  { emoji: "😄", label: "Joyful", value: 5, color: "green" },
+  { emoji: "🙂", label: "Good", value: 4, color: "turquoise" },
+  { emoji: "😐", label: "Okay", value: 3, color: "blue" },
+  { emoji: "😔", label: "Low", value: 2, color: "purple" },
+  { emoji: "😢", label: "Sad", value: 1, color: "pink" },
 ];
 
 function Chatbot() {
-  const [messages, setMessages] = useState<Msg[]>(initial);
+  const { userProfile, logMood } = useApp();
+  const [messages, setMessages] = useState<Msg[]>(() => initial(userProfile.name.split(" ")[0]));
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+
+  const getAIResponse = (userText: string): string => {
+    const text = userText.toLowerCase();
+    if (text.includes("anxious") || text.includes("anxiety") || text.includes("panic") || text.includes("scared")) {
+      return "I hear you. When anxiety hits, it can feel really overwhelming. Let's try a slow box breath together: inhale for 4 seconds, hold for 4, exhale for 4, hold for 4. You are safe here 💛";
+    }
+    if (text.includes("sad") || text.includes("depressed") || text.includes("cry") || text.includes("low") || text.includes("hurt")) {
+      return "It's completely okay to feel sad or low. You don't have to force yourself to be positive. I'm right here with you, and we can just sit with this feeling for a while 🌸";
+    }
+    if (text.includes("happy") || text.includes("great") || text.includes("good") || text.includes("win") || text.includes("excited")) {
+      return "That is wonderful to hear! 🌟 Sharing moments of joy is so important. What made today feel a bit brighter?";
+    }
+    if (text.includes("tired") || text.includes("exhausted") || text.includes("sleep") || text.includes("fatigue")) {
+      return "It sounds like your body and mind are asking for rest. Give yourself permission to pause and recharge. Rest is productive self-care 💤";
+    }
+    return "Thank you for sharing that with me. How does that make you feel inside, and what is one small thing that might bring you some comfort right now?";
+  };
 
   const send = (text: string) => {
     if (!text.trim()) return;
@@ -32,14 +56,22 @@ function Chatbot() {
     setMessages((m) => [...m, { role: "user", text, time }]);
     setInput("");
     setTyping(true);
+
     setTimeout(() => {
       setTyping(false);
       setMessages((m) => [...m, {
         role: "assistant",
-        text: "Thank you for sharing 💛 Let's take a slow breath together. What's one small thing that brought you comfort today?",
+        text: getAIResponse(text),
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       }]);
-    }, 1200);
+    }, 1000);
+  };
+
+  const handleMoodChipClick = (chip: typeof moodChips[0]) => {
+    // Log mood to history
+    logMood({ emoji: chip.emoji, label: chip.label, value: chip.value, color: chip.color }, 50, [], `Checked in via AI Companion`);
+    toast.success(`Logged mood: ${chip.label}!`);
+    send(`I am feeling ${chip.label} ${chip.emoji}`);
   };
 
   return (
@@ -73,7 +105,7 @@ function Chatbot() {
                   className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}
                 >
                   <div className={`h-9 w-9 rounded-full flex items-center justify-center text-white font-semibold shrink-0 ${m.role === "user" ? "gradient-coral-pink" : "gradient-purple-blue"}`}>
-                    {m.role === "user" ? "A" : <Sparkles className="h-4 w-4" />}
+                    {m.role === "user" ? userProfile.name.charAt(0).toUpperCase() : <Sparkles className="h-4 w-4" />}
                   </div>
                   <div className={`max-w-[75%] ${m.role === "user" ? "items-end" : "items-start"} flex flex-col gap-1`}>
                     <div className={`px-4 py-3 rounded-2xl ${m.role === "user" ? "gradient-primary text-white rounded-tr-sm" : "glass rounded-tl-sm"}`}>
@@ -99,7 +131,7 @@ function Chatbot() {
           <div className="border-t border-border p-4 space-y-3">
             <div className="flex gap-2 overflow-x-auto scrollbar-thin">
               {quickReplies.map((q) => (
-                <button key={q} onClick={() => send(q)} className="shrink-0 px-3 py-1.5 rounded-full glass text-sm hover:shadow-soft transition-all">{q}</button>
+                <button key={q} onClick={() => send(q)} className="shrink-0 px-3 py-1.5 rounded-full glass text-sm hover:shadow-soft transition-all cursor-pointer">{q}</button>
               ))}
             </div>
             <div className="flex gap-2">
@@ -108,9 +140,9 @@ function Chatbot() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && send(input)}
                 placeholder="Share what's on your mind..."
-                className="flex-1 px-4 py-3 rounded-2xl bg-muted/50 border border-border focus:border-primary outline-none transition-all"
+                className="flex-1 px-4 py-3 rounded-2xl bg-muted/50 border border-border focus:border-primary outline-none transition-all text-foreground"
               />
-              <button onClick={() => send(input)} className="px-5 py-3 rounded-2xl gradient-primary text-white shadow-glow hover:scale-105 transition-transform">
+              <button onClick={() => send(input)} className="px-5 py-3 rounded-2xl gradient-primary text-white shadow-glow hover:scale-105 transition-transform cursor-pointer">
                 <Send className="h-5 w-5" />
               </button>
             </div>
@@ -123,7 +155,9 @@ function Chatbot() {
             <h3 className="font-semibold flex items-center gap-2 mb-3"><Smile className="h-4 w-4" /> Quick Mood Check</h3>
             <div className="grid grid-cols-5 gap-2">
               {moodChips.map((m) => (
-                <button key={m.label} className="aspect-square rounded-xl glass hover:scale-110 transition-transform text-2xl">{m.emoji}</button>
+                <button key={m.label} onClick={() => handleMoodChipClick(m)} className="aspect-square rounded-xl glass hover:scale-110 transition-transform text-2xl cursor-pointer flex items-center justify-center">
+                  {m.emoji}
+                </button>
               ))}
             </div>
           </div>
@@ -132,8 +166,8 @@ function Chatbot() {
             <h3 className="font-semibold flex items-center gap-2 mb-2" style={{ color: "var(--coral-foreground)" }}><Phone className="h-4 w-4" /> Crisis Support</h3>
             <p className="text-sm mb-3" style={{ color: "var(--coral-foreground)" }}>If you need immediate help, you're not alone.</p>
             <div className="space-y-2">
-              <a href="tel:988" className="block px-3 py-2 rounded-xl bg-white/60 text-sm font-medium">📞 Call 988</a>
-              <a href="sms:741741" className="block px-3 py-2 rounded-xl bg-white/60 text-sm font-medium">💬 Text HOME to 741741</a>
+              <a href="tel:988" className="block px-3 py-2 rounded-xl bg-white/60 text-sm font-medium text-center">📞 Call 988</a>
+              <a href="sms:741741" className="block px-3 py-2 rounded-xl bg-white/60 text-sm font-medium text-center">💬 Text HOME to 741741</a>
             </div>
           </div>
 

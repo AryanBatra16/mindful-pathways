@@ -3,14 +3,14 @@ import { motion } from "framer-motion";
 import { Brain, Sparkles, TrendingUp } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
 import { PageHeader } from "@/components/PageHeader";
-import { moodDistribution } from "@/lib/mock-data";
+import { useApp } from "@/lib/state";
 
 export const Route = createFileRoute("/_app/moods")({
   head: () => ({ meta: [{ title: "Mood Analytics — Mind2Care" }] }),
   component: Moods,
 });
 
-const trend = Array.from({ length: 30 }).map((_, i) => ({
+const defaultTrend = Array.from({ length: 30 }).map((_, i) => ({
   day: i + 1,
   mood: 2.5 + Math.sin(i / 4) + Math.random() * 0.8,
 }));
@@ -30,15 +30,44 @@ const insights = [
 ];
 
 function Moods() {
+  const { moodHistory } = useApp();
+
+  // Compute dynamic distribution based on real logged moods
+  const distributionMap = { Joyful: 0, Good: 0, Okay: 0, Low: 0, Sad: 0 };
+  let totalLogs = 0;
+  moodHistory.forEach((log) => {
+    const label = log.mood.label;
+    if (label in distributionMap) {
+      distributionMap[label as keyof typeof distributionMap]++;
+      totalLogs++;
+    }
+  });
+
+  const dynamicDistribution = [
+    { name: "Joyful", value: totalLogs > 0 ? distributionMap.Joyful : 12, fill: "var(--green)" },
+    { name: "Good", value: totalLogs > 0 ? distributionMap.Good : 18, fill: "var(--turquoise)" },
+    { name: "Okay", value: totalLogs > 0 ? distributionMap.Okay : 8, fill: "var(--blue)" },
+    { name: "Low", value: totalLogs > 0 ? distributionMap.Low : 4, fill: "var(--purple)" },
+    { name: "Sad", value: totalLogs > 0 ? distributionMap.Sad : 2, fill: "var(--pink)" },
+  ];
+
+  // Map actual mood history to trend data points
+  const dynamicTrend = [...moodHistory].slice(0, 30).reverse().map((log, index) => ({
+    day: log.date || `Day ${index + 1}`,
+    mood: log.mood.value,
+  }));
+
+  const trendData = dynamicTrend.length > 0 ? dynamicTrend : defaultTrend;
+
   return (
     <div className="space-y-6">
       <PageHeader title="Mood Analytics" subtitle="Patterns in your inner weather." accent="purple" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 glass rounded-3xl p-6 shadow-card">
-          <h3 className="font-semibold mb-4">30-day mood trend</h3>
+          <h3 className="font-semibold mb-4">Mood trend</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={trend}>
+            <LineChart data={trendData}>
               <defs>
                 <linearGradient id="moodGrad" x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor="var(--coral)" />
@@ -59,14 +88,14 @@ function Moods() {
           <h3 className="font-semibold mb-4">Mood distribution</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={moodDistribution} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={4}>
-                {moodDistribution.map((d, i) => <Cell key={i} fill={d.fill} />)}
+              <Pie data={dynamicDistribution} dataKey="value" cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={4}>
+                {dynamicDistribution.map((d, i) => <Cell key={i} fill={d.fill} />)}
               </Pie>
               <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12 }} />
             </PieChart>
           </ResponsiveContainer>
           <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
-            {moodDistribution.map((d) => (
+            {dynamicDistribution.map((d) => (
               <div key={d.name} className="flex items-center gap-2"><span className="h-3 w-3 rounded-full" style={{ background: d.fill }} />{d.name}</div>
             ))}
           </div>
