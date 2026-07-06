@@ -1,7 +1,11 @@
 /**
- * Password Hashing & Verification using Web Crypto API (SHA-256 with Salt)
- * Supported in Cloudflare Workers, Edge Runtimes, Node.js, and Browsers.
+ * Enterprise-Grade PBKDF2 Password Hashing using Web Crypto API
+ * Uses SHA-256 with 100,000 iterations and a 16-byte cryptographically random salt.
+ * Compatible with Cloudflare Workers, Edge runtimes, Node.js, and Browsers.
  */
+
+const PBKDF2_ITERATIONS = 100_000;
+const KEY_LENGTH_BITS = 256; // 32 bytes
 
 function bufferToHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
@@ -18,21 +22,45 @@ function hexToBuffer(hex: string): Uint8Array {
 }
 
 /**
- * Hashes a plaintext password with a randomly generated 16-byte salt using SHA-256.
- * Returns a string formatted as "saltHex:hashHex".
+ * Derives a PBKDF2 key using Web Crypto API.
+ */
+async function derivePbkdf2Key(
+  password: string,
+  salt: Uint8Array
+): Promise<ArrayBuffer> {
+  const encoder = new TextEncoder();
+  const passwordBuffer = encoder.encode(password);
+
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    passwordBuffer,
+    { name: "PBKDF2" },
+    false,
+    ["deriveBits"]
+  );
+
+  return await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: salt.buffer as ArrayBuffer,
+      iterations: PBKDF2_ITERATIONS,
+      hash: "SHA-256",
+    },
+    baseKey,
+    KEY_LENGTH_BITS
+  );
+}
+
+/**
+ * Hashes a plaintext password with PBKDF2 (100,000 iterations + SHA-256 + 16-byte random salt).
+ * Returns string formatted as "saltHex:hashHex".
  */
 export async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const passwordBytes = encoder.encode(password);
+  const derivedBits = await derivePbkdf2Key(password, salt);
 
-  const combined = new Uint8Array(salt.length + passwordBytes.length);
-  combined.set(salt, 0);
-  combined.set(passwordBytes, salt.length);
-
-  const hashBuffer = await crypto.subtle.digest("SHA-256", combined);
   const saltHex = bufferToHex(salt.buffer);
-  const hashHex = bufferToHex(hashBuffer);
+  const hashHex = bufferToHex(derivedBits);
 
   return `${saltHex}:${hashHex}`;
 }
@@ -50,15 +78,9 @@ export async function verifyPassword(
 
   const [saltHex, originalHashHex] = storedHash.split(":");
   const salt = hexToBuffer(saltHex);
-  const encoder = new TextEncoder();
-  const passwordBytes = encoder.encode(password);
 
-  const combined = new Uint8Array(salt.length + passwordBytes.length);
-  combined.set(salt, 0);
-  combined.set(passwordBytes, salt.length);
-
-  const hashBuffer = await crypto.subtle.digest("SHA-256", combined);
-  const calculatedHashHex = bufferToHex(hashBuffer);
+  const derivedBits = await derivePbkdf2Key(password, salt);
+  const calculatedHashHex = bufferToHex(derivedBits);
 
   return calculatedHashHex === originalHashHex;
 }
