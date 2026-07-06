@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { tasks as initialTasks, challenges as initialChallenges, communityPosts as initialCommunityPosts, moodHistory as initialMoodHistory } from "./mock-data";
 
 export interface Task {
-  id: number;
+  id: number | string;
   title: string;
   priority: "high" | "medium" | "low";
   status: "today" | "week" | "later" | "completed";
@@ -35,7 +35,7 @@ export interface Challenge {
 }
 
 export interface CommunityPost {
-  id: number;
+  id: number | string;
   author: string;
   anon: boolean;
   time: string;
@@ -47,6 +47,7 @@ export interface CommunityPost {
 }
 
 export interface UserProfile {
+  id?: string;
   name: string;
   email: string;
   bio: string;
@@ -65,6 +66,11 @@ export interface AppSettings {
   dailyReminder: string;
 }
 
+interface AuthResult {
+  success: boolean;
+  error?: string;
+}
+
 interface AppContextType {
   userProfile: UserProfile;
   tasks: Task[];
@@ -73,15 +79,18 @@ interface AppContextType {
   communityPosts: CommunityPost[];
   savedQuotes: number[];
   settings: AppSettings;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  signup: (name: string, email: string, password: string) => Promise<AuthResult>;
+  logout: () => void;
   updateProfile: (profile: Partial<UserProfile>) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   addTask: (title: string, priority: "high" | "medium" | "low", due: string, challenge: string | null) => void;
-  deleteTask: (id: number) => void;
-  completeTask: (id: number) => void;
+  deleteTask: (id: number | string) => void;
+  completeTask: (id: number | string) => void;
   logMood: (mood: Mood, intensity: number, tags: string[], note: string) => void;
   toggleChallenge: (id: number) => void;
   addPost: (content: string, anon: boolean) => void;
-  toggleLikePost: (id: number) => void;
+  toggleLikePost: (id: number | string) => void;
   toggleSaveQuote: (id: number) => void;
   resetAllData: () => void;
 }
@@ -134,7 +143,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem("m2c_savedQuotes");
       if (saved) return JSON.parse(saved);
     }
-    return [2]; // default saved quote
+    return [2];
   });
 
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -181,7 +190,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem("m2c_settings", JSON.stringify(settings));
-    // Apply theme changes to document Element
     const root = document.documentElement;
     if (settings.theme === "Dark" || (settings.theme === "Auto" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
       root.classList.add("dark");
@@ -190,10 +198,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [settings]);
 
+  const login = async (email: string, password: string): Promise<AuthResult> => {
+    if (!email || !password) return { success: false, error: "Please enter your email and password." };
+    const name = email.split("@")[0];
+    const newUser = { id: `usr_${Date.now()}`, name: name.charAt(0).toUpperCase() + name.slice(1), email, bio: "Mindful path explorer.", points: 150, level: "Explorer" };
+    setUserProfile(newUser);
+    document.cookie = `session=sess_${Date.now()}; Path=/; max-age=2592000; SameSite=Lax`;
+    return { success: true };
+  };
+
+  const signup = async (name: string, email: string, password: string): Promise<AuthResult> => {
+    if (!name || !email || !password) return { success: false, error: "Please fill in all fields." };
+    if (password.length < 6) return { success: false, error: "Password must be at least 6 characters." };
+    const newUser = { id: `usr_${Date.now()}`, name, email, bio: "Mindful path explorer.", points: 50, level: "Novice" };
+    setUserProfile(newUser);
+    document.cookie = `session=sess_${Date.now()}; Path=/; max-age=2592000; SameSite=Lax`;
+    return { success: true };
+  };
+
+  const logout = () => {
+    document.cookie = "session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    if (typeof window !== "undefined") {
+      window.location.href = "/signin";
+    }
+  };
+
   const updateProfile = (profile: Partial<UserProfile>) => {
     setUserProfile((prev) => {
       const updated = { ...prev, ...profile };
-      // Dynamically calculate level based on points
       let newLevel = "Novice";
       if (updated.points >= 1500) newLevel = "Luminary";
       else if (updated.points >= 1000) newLevel = "Sage";
@@ -220,19 +252,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTasks((prev) => [newTask, ...prev]);
   };
 
-  const deleteTask = (id: number) => {
+  const deleteTask = (id: number | string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const completeTask = (id: number) => {
+  const completeTask = (id: number | string) => {
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
-          // Add points for completing task
           const pointsGained = t.priority === "high" ? 25 : t.priority === "medium" ? 15 : 10;
           updateProfile({ points: userProfile.points + pointsGained });
           
-          // Also update linked challenge progress if any
           if (t.challenge) {
             setChallenges((prevChallenges) =>
               prevChallenges.map((c) => {
@@ -261,7 +291,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       note: note || (tags.length ? `Felt ${mood.label} (${tags.join(", ")})` : `Felt ${mood.label}`),
     };
     setMoodHistory((prev) => [newLog, ...prev]);
-    // Log points for check-in
     updateProfile({ points: userProfile.points + 10 });
   };
 
@@ -272,7 +301,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (c.status === "available") {
             return { ...c, status: "active", progress: 0 };
           } else if (c.status === "active") {
-            // progress completion
             return { ...c, status: "completed", progress: 100 };
           }
         }
@@ -294,10 +322,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       liked: false,
     };
     setCommunityPosts((prev) => [newPost, ...prev]);
-    updateProfile({ points: userProfile.points + 5 }); // Points for sharing
+    updateProfile({ points: userProfile.points + 5 });
   };
 
-  const toggleLikePost = (id: number) => {
+  const toggleLikePost = (id: number | string) => {
     setCommunityPosts((prev) =>
       prev.map((p) => {
         if (p.id === id) {
@@ -345,6 +373,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         communityPosts,
         savedQuotes,
         settings,
+        login,
+        signup,
+        logout,
         updateProfile,
         updateSettings,
         addTask,

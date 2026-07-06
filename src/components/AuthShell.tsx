@@ -45,9 +45,13 @@ export function AuthInput({ label, type = "text", placeholder, value, onChange, 
   );
 }
 
-export function AuthButton({ children }: { children: ReactNode }) {
+export function AuthButton({ children, disabled }: { children: ReactNode; disabled?: boolean }) {
   return (
-    <button type="submit" className="w-full py-3 rounded-xl gradient-primary text-white font-semibold shadow-glow hover:scale-[1.02] transition-transform cursor-pointer">
+    <button
+      type="submit"
+      disabled={disabled}
+      className="w-full py-3 rounded-xl gradient-primary text-white font-semibold shadow-glow hover:scale-[1.02] transition-transform cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+    >
       {children}
     </button>
   );

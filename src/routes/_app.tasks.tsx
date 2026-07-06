@@ -44,12 +44,12 @@ function Tasks() {
     setOpen(false);
   };
 
-  const handleCompleteTask = (id: number) => {
+  const handleCompleteTask = (id: number | string) => {
     completeTask(id);
     toast.success("Task completed! Points awarded 💛");
   };
 
-  const handleDeleteTask = (id: number) => {
+  const handleDeleteTask = (id: number | string) => {
     deleteTask(id);
     toast.success("Task deleted.");
   };
