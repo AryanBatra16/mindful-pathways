@@ -92,3 +92,13 @@ export const chatbot_messages = sqliteTable("chatbot_messages", {
   text: text("text").notNull(),
   created_at: integer("created_at").default(sql`(strftime('%s', 'now'))`),
 });
+
+export const sessions = sqliteTable("sessions", {
+  id: text("id").primaryKey(),
+  user_id: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  expires_at: integer("expires_at").notNull(),
+  created_at: integer("created_at").default(sql`(strftime('%s', 'now'))`),
+});
+
