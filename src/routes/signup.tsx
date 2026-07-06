@@ -1,10 +1,18 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, redirect } from "@tanstack/react-router";
 import { AuthShell, AuthInput, AuthButton } from "@/components/AuthShell";
 import { useState } from "react";
 import { useApp } from "@/lib/state";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign Up — Mind2Care" }] }),
+  beforeLoad: () => {
+    if (typeof window !== "undefined") {
+      const hasSession = document.cookie.includes("session=");
+      if (hasSession) {
+        throw redirect({ to: "/dashboard" });
+      }
+    }
+  },
   component: SignUp,
 });
 
