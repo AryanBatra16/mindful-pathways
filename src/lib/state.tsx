@@ -41,6 +41,10 @@ export interface Challenge {
   color: string;
   /** Type key used for verification */
   verifyType?: string;
+  /** Human-readable requirement description */
+  requirement?: string;
+  /** How many actions are needed to complete */
+  requirementCount?: number;
 }
 
 export interface CommunityPost {
@@ -430,6 +434,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   /** Compute verified progress for a challenge based on real activity data */
   const computeChallengeProgress = (challenge: Challenge): number => {
+    const req = challenge.requirementCount || 1;
     switch (challenge.verifyType) {
       case "gratitude_journal": {
         // Count distinct days with a daily mood log that has a note
@@ -438,43 +443,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             .filter((h) => h.type === "daily" && h.note && h.note.trim().length > 0)
             .map((h) => h.date)
         );
-        return Math.min(100, Math.round((daysWithNote.size / 7) * 100));
+        return Math.min(100, Math.round((daysWithNote.size / req) * 100));
       }
       case "mindful_mornings": {
-        // Count days with a mood log before 9 AM
+        // Count distinct days with a mood log before 9 AM
         const earlyDays = new Set(
           moodHistory.filter((h) => {
             const hour = new Date(`${h.date}T${to24h(h.time)}`).getHours();
             return hour < 9;
           }).map((h) => h.date)
         );
-        return Math.min(100, Math.round((earlyDays.size / 5) * 100));
+        return Math.min(100, Math.round((earlyDays.size / req) * 100));
       }
       case "mood_streak_5": {
-        // Count distinct days with any mood log up to 5
+        // Count distinct days with any mood log
         const uniqueDays = new Set(moodHistory.map((h) => h.date));
-        return Math.min(100, Math.round((uniqueDays.size / 5) * 100));
+        return Math.min(100, Math.round((uniqueDays.size / req) * 100));
       }
       case "reflection_writer": {
-        // Count entries with non-empty notes
+        // Count entries with non-empty notes (more than 3 chars)
         const withNotes = moodHistory.filter((h) => h.note && h.note.trim().length > 3).length;
-        return Math.min(100, Math.round((withNotes / 3) * 100));
+        return Math.min(100, Math.round((withNotes / req) * 100));
       }
       case "social_spark": {
-        // Count posts by current user (non-anon or matching name)
+        // Count posts by current user (non-anon matching name)
         const myPosts = communityPosts.filter(
           (p) => !p.anon && p.author === userProfile.name
         ).length;
-        return Math.min(100, Math.round((myPosts / 3) * 100));
-      }
-      case "digital_detox": {
-        return challenge.progress; // manually tracked
-      }
-      case "hydration_hero": {
-        return challenge.progress; // manually tracked
-      }
-      case "move_every_day": {
-        return challenge.progress; // manually tracked
       }
       default:
         return challenge.progress;

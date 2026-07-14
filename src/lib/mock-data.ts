@@ -29,12 +29,16 @@ export const quotes = [
 ];
 
 export const challenges = [
-  { id: 1, title: "7-Day Gratitude Journal", desc: "Write 3 things you're grateful for daily", points: 70, progress: 60, status: "active", category: "gratitude", color: "coral" },
-  { id: 2, title: "Mindful Mornings", desc: "5 minutes of mindfulness each morning", points: 50, progress: 40, status: "active", category: "mindfulness", color: "purple" },
-  { id: 3, title: "Digital Detox Sunday", desc: "Spend a Sunday off all screens", points: 30, progress: 0, status: "available", category: "rest", color: "blue" },
-  { id: 4, title: "Hydration Hero", desc: "Drink 8 glasses of water for 7 days", points: 40, progress: 0, status: "available", category: "wellness", color: "turquoise" },
-  { id: 5, title: "Move Every Day", desc: "20 minutes of movement, any kind", points: 60, progress: 0, status: "available", category: "wellness", color: "green" },
-  { id: 6, title: "Kindness Streak", desc: "Do one act of kindness per day", points: 50, progress: 100, status: "completed", category: "social", color: "pink" },
+  { id: 1, title: "7-Day Gratitude Journal", desc: "Log your daily mood with a note for 7 different days", points: 70, progress: 0, status: "active", category: "gratitude", color: "coral", verifyType: "gratitude_journal", requirement: "Log daily mood with a note on 7 different days", requirementCount: 7 },
+  { id: 2, title: "Mindful Mornings", desc: "Log your mood before 9 AM on 5 different days", points: 50, progress: 0, status: "active", category: "mindfulness", color: "purple", verifyType: "mindful_mornings", requirement: "Log mood before 9 AM on 5 different days", requirementCount: 5 },
+  { id: 3, title: "Digital Detox Sunday", desc: "Spend a Sunday off all screens", points: 30, progress: 0, status: "available", category: "rest", color: "blue", verifyType: "digital_detox", requirement: "Manually mark complete after your detox day", requirementCount: 1 },
+  { id: 4, title: "Hydration Hero", desc: "Drink 8 glasses of water for 7 days", points: 40, progress: 0, status: "available", category: "wellness", color: "turquoise", verifyType: "hydration_hero", requirement: "Manually track your water intake for 7 days", requirementCount: 7 },
+  { id: 5, title: "Move Every Day", desc: "20 minutes of movement, any kind", points: 60, progress: 0, status: "available", category: "wellness", color: "green", verifyType: "move_every_day", requirement: "Log movement sessions via tasks for 7 days", requirementCount: 7 },
+  { id: 6, title: "Kindness Streak", desc: "Do one act of kindness per day", points: 50, progress: 100, status: "completed", category: "social", color: "pink", verifyType: "kindness_streak", requirement: "Completed!", requirementCount: 7 },
+  { id: 7, title: "5-Day Mood Streak", desc: "Log your mood on 5 consecutive days", points: 60, progress: 0, status: "available", category: "mindfulness", color: "turquoise", verifyType: "mood_streak_5", requirement: "Log mood on at least 5 different calendar days", requirementCount: 5 },
+  { id: 8, title: "Reflection Writer", desc: "Add a thoughtful note to 3 of your mood entries", points: 40, progress: 0, status: "available", category: "growth", color: "blue", verifyType: "reflection_writer", requirement: "Add meaningful notes to 3 mood entries", requirementCount: 3 },
+  { id: 9, title: "Early Bird", desc: "Log your mood before 9 AM on 3 different days", points: 35, progress: 0, status: "available", category: "wellness", color: "green", verifyType: "mindful_mornings", requirement: "Log mood before 9 AM on 3 days", requirementCount: 3 },
+  { id: 10, title: "Social Spark", desc: "Share 3 posts in the community", points: 45, progress: 0, status: "available", category: "social", color: "coral", verifyType: "social_spark", requirement: "Post in the community 3 times", requirementCount: 3 },
 ];
 
 export const tasks = [
