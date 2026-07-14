@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
-import { Share2, Heart, Bell } from "lucide-react";
+import { Heart, ChevronDown, ChevronUp, Bookmark } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { quotes } from "@/lib/mock-data";
 import { useApp } from "@/lib/state";
@@ -16,27 +16,16 @@ const categories = ["all", "mindfulness", "self-care", "healing", "growth", "res
 const colors = ["coral", "pink", "purple", "blue", "turquoise", "green"];
 
 function Quotes() {
-  const { savedQuotes, toggleSaveQuote, settings, updateSettings } = useApp();
+  const { savedQuotes, toggleSaveQuote } = useApp();
   const [cat, setCat] = useState("all");
-  const [reminderTime, setReminderTime] = useState(settings.dailyReminder || "08:00");
-  
+  const [savedExpanded, setSavedExpanded] = useState(true);
+
   const filtered = cat === "all" ? quotes : quotes.filter((q) => q.category === cat);
   const todayQuote = quotes[0];
   const isTodayQuoteSaved = savedQuotes.includes(todayQuote.id);
 
-  const handleSaveReminder = () => {
-    updateSettings({ dailyReminder: reminderTime });
-    toast.success(`Reminder set for ${reminderTime} daily! 🔔`);
-  };
-
-  const handleShare = (quoteText: string, author: string) => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(`"${quoteText}" — ${author}`);
-      toast.success("Quote copied to clipboard! Share the light ✨");
-    } else {
-      toast.success("Ready to share!");
-    }
-  };
+  // Liked quotes
+  const likedQuotes = quotes.filter((q) => savedQuotes.includes(q.id));
 
   return (
     <div className="space-y-6">
@@ -54,14 +43,87 @@ function Quotes() {
           <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Today's Quote</span>
           <p className="mt-4 text-2xl md:text-4xl font-bold leading-tight max-w-3xl mx-auto">"{todayQuote.text}"</p>
           <p className="mt-4 text-muted-foreground">— {todayQuote.author}</p>
-          <div className="mt-6 flex justify-center gap-3">
-            <button onClick={() => handleShare(todayQuote.text, todayQuote.author)} className="px-5 py-2.5 rounded-full glass shadow-soft hover:scale-105 transition-transform flex items-center gap-2 cursor-pointer"><Share2 className="h-4 w-4" /> Share</button>
-            <button onClick={() => { toggleSaveQuote(todayQuote.id); toast.success(isTodayQuoteSaved ? "Quote removed from favorites" : "Quote saved to favorites 💖"); }} className="px-5 py-2.5 rounded-full glass shadow-soft hover:scale-105 transition-transform flex items-center gap-2 cursor-pointer">
-              <Heart className={`h-4 w-4 ${isTodayQuoteSaved ? "fill-pink-foreground text-pink-foreground" : ""}`} /> {isTodayQuoteSaved ? "Saved" : "Save"}
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={() => {
+                toggleSaveQuote(todayQuote.id);
+                toast.success(isTodayQuoteSaved ? "Quote removed from favorites" : "Quote saved to favorites 💖");
+              }}
+              className="px-5 py-2.5 rounded-full glass shadow-soft hover:scale-105 transition-transform flex items-center gap-2 cursor-pointer"
+            >
+              <Heart className={`h-4 w-4 transition-all ${isTodayQuoteSaved ? "fill-current text-pink-500" : ""}`} />
+              {isTodayQuoteSaved ? "Saved" : "Save"}
             </button>
           </div>
         </div>
       </motion.div>
+
+      {/* Saved Quotes Section */}
+      <AnimatePresence>
+        {likedQuotes.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="glass rounded-3xl shadow-card overflow-hidden"
+          >
+            <button
+              onClick={() => setSavedExpanded((p) => !p)}
+              className="w-full flex items-center justify-between px-6 py-4 hover:bg-muted/30 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl gradient-coral-pink flex items-center justify-center shadow-soft">
+                  <Bookmark className="h-4 w-4 text-white" />
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold">Saved Quotes</div>
+                  <div className="text-xs text-muted-foreground">{likedQuotes.length} quote{likedQuotes.length !== 1 ? "s" : ""} saved</div>
+                </div>
+              </div>
+              {savedExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+            </button>
+
+            <AnimatePresence>
+              {savedExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-6 pb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {likedQuotes.map((q, i) => (
+                      <motion.div
+                        key={q.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="relative glass rounded-2xl p-5 overflow-hidden"
+                        style={{ borderLeft: `3px solid var(--${colors[i % colors.length]})` }}
+                      >
+                        <p className="text-sm leading-relaxed">"{q.text}"</p>
+                        <div className="mt-3 flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">— {q.author}</span>
+                          <button
+                            onClick={() => {
+                              toggleSaveQuote(q.id);
+                              toast.success("Quote removed from favorites");
+                            }}
+                            className="p-1 cursor-pointer text-pink-500 hover:scale-110 transition-transform"
+                          >
+                            <Heart className="h-4 w-4 fill-current" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Filters */}
       <div className="flex gap-2 flex-wrap">
@@ -93,33 +155,19 @@ function Quotes() {
               <p className="relative text-lg leading-relaxed">"{q.text}"</p>
               <div className="relative mt-4 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">— {q.author}</span>
-                <div className="flex gap-2">
-                  <button onClick={() => handleShare(q.text, q.author)} className="p-1 text-muted-foreground hover:text-foreground cursor-pointer">
-                    <Share2 className="h-4 w-4" />
-                  </button>
-                  <button className="cursor-pointer" onClick={() => { toggleSaveQuote(q.id); toast.success(isSaved ? "Quote removed from favorites" : "Quote saved to favorites 💖"); }}>
-                    <Heart className={`h-5 w-5 transition-all ${isSaved ? "fill-pink-foreground text-pink-foreground" : "text-muted-foreground"}`} />
-                  </button>
-                </div>
+                <button
+                  className="cursor-pointer"
+                  onClick={() => {
+                    toggleSaveQuote(q.id);
+                    toast.success(isSaved ? "Quote removed from favorites" : "Quote saved to favorites 💖");
+                  }}
+                >
+                  <Heart className={`h-5 w-5 transition-all ${isSaved ? "fill-current text-pink-500" : "text-muted-foreground"}`} />
+                </button>
               </div>
             </motion.div>
           );
         })}
-      </div>
-
-      {/* Reminders */}
-      <div className="glass rounded-3xl p-6 shadow-card flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl gradient-turquoise-green flex items-center justify-center"><Bell className="h-5 w-5 text-white" /></div>
-          <div>
-            <div className="font-semibold">Daily Quote Reminder</div>
-            <div className="text-sm text-muted-foreground">A gentle nudge each morning</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <input type="time" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} className="px-3 py-2 rounded-xl bg-muted/50 border border-border text-foreground outline-none" />
-          <button onClick={handleSaveReminder} className="px-4 py-2 rounded-xl gradient-primary text-white font-medium shadow-soft cursor-pointer">Save</button>
-        </div>
       </div>
     </div>
   );
