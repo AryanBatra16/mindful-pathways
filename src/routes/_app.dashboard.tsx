@@ -4,7 +4,7 @@ import { Flame, TrendingUp, Sparkles, Smile, MessageCircleHeart, Trophy, ArrowRi
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { PageHeader } from "@/components/PageHeader";
 import { quotes, moods } from "@/lib/mock-data";
-import { useApp } from "@/lib/state";
+import { useApp, computeStreak, toISODate } from "@/lib/state";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Mind2Care" }] }),
@@ -13,20 +13,20 @@ export const Route = createFileRoute("/_app/dashboard")({
 
 function Dashboard() {
   const { userProfile, moodHistory, challenges } = useApp();
-  
+
   const todayQuote = quotes[0];
   const activeChallenge = challenges.find((c) => c.status === "active") || challenges[0];
 
-  // Compute stats dynamically
-  const streak = moodHistory.length > 0 ? Math.min(30, moodHistory.length + 1) : 0;
-  
-  const averageMoodValue = moodHistory.length > 0 
-    ? (moodHistory.reduce((sum, h) => sum + h.mood.value, 0) / moodHistory.length).toFixed(1)
-    : "4.2";
+  // Streak — count of consecutive distinct calendar days
+  const streak = computeStreak(moodHistory);
 
-  const todayMoodLog = moodHistory[0];
+  const averageMoodValue = moodHistory.length > 0
+    ? (moodHistory.reduce((sum, h) => sum + h.mood.value, 0) / moodHistory.length).toFixed(1)
+    : "—";
+
+  const todayMoodLog = moodHistory.find((h) => h.date === toISODate(new Date()));
   const todayMoodEmoji = todayMoodLog ? todayMoodLog.mood.emoji : "🙂";
-  const todayMoodLabel = todayMoodLog ? todayMoodLog.mood.label : "Good";
+  const todayMoodLabel = todayMoodLog ? todayMoodLog.mood.label : "Not logged";
 
   const stats = [
     { label: "Streak", value: String(streak), unit: "days", icon: Flame, color: "coral" },
@@ -35,19 +35,19 @@ function Dashboard() {
     { label: "Today's Mood", value: todayMoodEmoji, unit: todayMoodLabel, icon: Smile, color: "green" },
   ];
 
-  // Map last 7 days of mood history to weekly trend chart
-  // If we have history, map it. Otherwise map mock weekly trend
-  const defaultWeeklyMood = [
-    { day: "Mon", mood: 4 }, { day: "Tue", mood: 3 }, { day: "Wed", mood: 5 },
-    { day: "Thu", mood: 4 }, { day: "Fri", mood: 4 }, { day: "Sat", mood: 5 }, { day: "Sun", mood: 4 },
-  ];
-
-  const chartData = moodHistory.length >= 3
-    ? [...moodHistory].slice(0, 7).reverse().map((log) => ({
-        day: log.date.replace("Day ", "D"),
-        mood: log.mood.value,
-      }))
-    : defaultWeeklyMood;
+  // Build last 7 calendar days chart
+  // For each of the last 7 days, compute the average mood value
+  const chartData = Array.from({ length: 7 }).map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i)); // i=0 is 6 days ago, i=6 is today
+    const dateStr = toISODate(d);
+    const dayLogs = moodHistory.filter((h) => h.date === dateStr);
+    const avgMood = dayLogs.length > 0
+      ? parseFloat((dayLogs.reduce((sum, h) => sum + h.mood.value, 0) / dayLogs.length).toFixed(1))
+      : null;
+    const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+    return { day: dayName, mood: avgMood };
+  });
 
   return (
     <div className="space-y-6">
@@ -109,17 +109,27 @@ function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-semibold text-lg">Weekly Mood Trend</h3>
-              <p className="text-xs text-muted-foreground">Your last check-ins</p>
+              <p className="text-xs text-muted-foreground">Average mood per day — last 7 days</p>
             </div>
-            <span className="text-xs px-3 py-1 rounded-full glass">+8% vs last week</span>
           </div>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="day" stroke="var(--muted-foreground)" fontSize={12} />
               <YAxis domain={[0, 5]} stroke="var(--muted-foreground)" fontSize={12} />
-              <Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12 }} />
-              <Line type="monotone" dataKey="mood" stroke="var(--purple)" strokeWidth={3} dot={{ fill: "var(--coral)", r: 5 }} activeDot={{ r: 7 }} />
+              <Tooltip
+                contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12 }}
+                formatter={(val: number | null) => val === null ? ["No entry", "Mood"] : [val, "Mood"]}
+              />
+              <Line
+                type="monotone"
+                dataKey="mood"
+                stroke="var(--purple)"
+                strokeWidth={3}
+                connectNulls={false}
+                dot={{ fill: "var(--coral)", r: 5 }}
+                activeDot={{ r: 7 }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </motion.div>
@@ -157,7 +167,7 @@ function Dashboard() {
 
       {/* Recent moods */}
       <div className="glass rounded-3xl p-6 shadow-card">
-        <h3 className="font-semibold mb-4">Recent Moods</h3>
+        <h3 className="font-semibold mb-4">Mood Palette</h3>
         <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
           {moods.map((m) => (
             <div key={m.label} className="shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl glass min-w-[88px]" style={{ background: `var(--${m.color})`, opacity: 0.6 }}>

@@ -18,9 +18,16 @@ export interface Mood {
 }
 
 export interface MoodLog {
+  /** ISO date string YYYY-MM-DD */
   date: string;
+  /** Human-readable time e.g. "3:45 PM" */
+  time: string;
+  /** "quick" = quick log from dashboard; "daily" = full daily tracker */
+  type: "quick" | "daily";
   mood: Mood;
   note: string;
+  /** Tags selected at log time */
+  tags: string[];
 }
 
 export interface Challenge {
@@ -32,6 +39,8 @@ export interface Challenge {
   status: "active" | "available" | "completed";
   category: string;
   color: string;
+  /** Type key used for verification */
+  verifyType?: string;
 }
 
 export interface CommunityPost {
@@ -53,14 +62,18 @@ export interface UserProfile {
   bio: string;
   points: number;
   level: string;
+  avatar?: string;
+  joinDate?: string;
+  firstMoodDate?: string;
+  firstWeekDate?: string;
+  firstChallengeDate?: string;
 }
 
 export interface AppSettings {
-  theme: "Light" | "Dark" | "Auto";
+  theme: "Light" | "Dark";
   fontSize: number;
   compactMode: boolean;
-  reduceAnimations: boolean;
-  highContrast: boolean;
+  nightContrast: boolean;
   defaultAnonymous: boolean;
   emailInsights: boolean;
   dailyReminder: string;
@@ -87,15 +100,52 @@ interface AppContextType {
   addTask: (title: string, priority: "high" | "medium" | "low", due: string, challenge: string | null) => void;
   deleteTask: (id: number | string) => void;
   completeTask: (id: number | string) => void;
-  logMood: (mood: Mood, intensity: number, tags: string[], note: string) => void;
+  logMood: (mood: Mood, intensity: number, tags: string[], note: string, type?: "quick" | "daily") => void;
   toggleChallenge: (id: number) => void;
   addPost: (content: string, anon: boolean) => void;
   toggleLikePost: (id: number | string) => void;
   toggleSaveQuote: (id: number) => void;
   resetAllData: () => void;
+  computeChallengeProgress: (challenge: Challenge) => number;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+/** Format a Date to "Mon, Jul 14" style */
+export function formatDate(d: Date): string {
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+/** Format a Date to "3:45 PM" style */
+export function formatTime(d: Date): string {
+  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+/** Get ISO date string YYYY-MM-DD from a Date */
+export function toISODate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
+/** Compute how many distinct calendar days have at least one mood log */
+export function computeStreak(history: MoodLog[]): number {
+  if (history.length === 0) return 0;
+  const uniqueDays = new Set(history.map((h) => h.date));
+  const sortedDays = Array.from(uniqueDays).sort().reverse(); // newest first
+  const today = toISODate(new Date());
+  let streak = 0;
+  let checkDate = new Date();
+  for (let i = 0; i < 365; i++) {
+    const dateStr = toISODate(checkDate);
+    if (uniqueDays.has(dateStr)) {
+      streak++;
+    } else if (dateStr !== today || streak > 0) {
+      // Allow today to be missing (haven't logged yet today)
+      if (streak > 0) break;
+    }
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+  return streak;
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
@@ -103,7 +153,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem("m2c_profile");
       if (saved) return JSON.parse(saved);
     }
-    return { name: "Aria Wells", email: "aria@mind2care.app", bio: "On a gentle journey toward calmer days.", points: 1240, level: "Sage" };
+    return {
+      name: "Aria Wells",
+      email: "aria@mind2care.app",
+      bio: "On a gentle journey toward calmer days.",
+      points: 1240,
+      level: "Sage",
+      joinDate: "2026-01-12",
+      firstMoodDate: "2026-01-13",
+      firstWeekDate: "2026-01-19",
+      firstChallengeDate: "2026-02-02",
+    };
   });
 
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -117,9 +177,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [moodHistory, setMoodHistory] = useState<MoodLog[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("m2c_moodHistory");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Migrate old entries that have "Day X" date format
+        return parsed.map((log: MoodLog, idx: number) => {
+          if (!log.date || log.date.startsWith("Day ")) {
+            const d = new Date();
+            d.setDate(d.getDate() - (parsed.length - 1 - idx));
+            return {
+              ...log,
+              date: toISODate(d),
+              time: log.time || "12:00 PM",
+              type: log.type || "daily",
+              tags: log.tags || [],
+            };
+          }
+          return { ...log, time: log.time || "12:00 PM", type: log.type || "daily", tags: log.tags || [] };
+        });
+      }
     }
-    return initialMoodHistory as MoodLog[];
+    // Migrate initial mock data to real dates
+    const today = new Date();
+    return initialMoodHistory.map((log, idx) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - (initialMoodHistory.length - 1 - idx));
+      return {
+        ...log,
+        date: toISODate(d),
+        time: "09:00 AM",
+        type: "daily" as const,
+        tags: [],
+      };
+    });
   });
 
   const [challenges, setChallenges] = useState<Challenge[]>(() => {
@@ -149,14 +238,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("m2c_settings");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Migrate old settings: rename highContrast -> nightContrast, remove reduceAnimations/auto theme
+        return {
+          theme: parsed.theme === "Auto" ? "Light" : (parsed.theme || "Light"),
+          fontSize: parsed.fontSize || 16,
+          compactMode: parsed.compactMode || false,
+          nightContrast: parsed.nightContrast ?? parsed.highContrast ?? false,
+          defaultAnonymous: parsed.defaultAnonymous ?? true,
+          emailInsights: parsed.emailInsights ?? true,
+          dailyReminder: parsed.dailyReminder || "08:00",
+        };
+      }
     }
     return {
       theme: "Light",
       fontSize: 16,
       compactMode: false,
-      reduceAnimations: false,
-      highContrast: false,
+      nightContrast: false,
       defaultAnonymous: true,
       emailInsights: true,
       dailyReminder: "08:00",
@@ -164,44 +264,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   // Sync state to localStorage
-  useEffect(() => {
-    localStorage.setItem("m2c_profile", JSON.stringify(userProfile));
-  }, [userProfile]);
-
-  useEffect(() => {
-    localStorage.setItem("m2c_tasks", JSON.stringify(tasks));
-  }, [tasks]);
-
-  useEffect(() => {
-    localStorage.setItem("m2c_moodHistory", JSON.stringify(moodHistory));
-  }, [moodHistory]);
-
-  useEffect(() => {
-    localStorage.setItem("m2c_challenges", JSON.stringify(challenges));
-  }, [challenges]);
-
-  useEffect(() => {
-    localStorage.setItem("m2c_communityPosts", JSON.stringify(communityPosts));
-  }, [communityPosts]);
-
-  useEffect(() => {
-    localStorage.setItem("m2c_savedQuotes", JSON.stringify(savedQuotes));
-  }, [savedQuotes]);
+  useEffect(() => { localStorage.setItem("m2c_profile", JSON.stringify(userProfile)); }, [userProfile]);
+  useEffect(() => { localStorage.setItem("m2c_tasks", JSON.stringify(tasks)); }, [tasks]);
+  useEffect(() => { localStorage.setItem("m2c_moodHistory", JSON.stringify(moodHistory)); }, [moodHistory]);
+  useEffect(() => { localStorage.setItem("m2c_challenges", JSON.stringify(challenges)); }, [challenges]);
+  useEffect(() => { localStorage.setItem("m2c_communityPosts", JSON.stringify(communityPosts)); }, [communityPosts]);
+  useEffect(() => { localStorage.setItem("m2c_savedQuotes", JSON.stringify(savedQuotes)); }, [savedQuotes]);
 
   useEffect(() => {
     localStorage.setItem("m2c_settings", JSON.stringify(settings));
     const root = document.documentElement;
-    if (settings.theme === "Dark" || (settings.theme === "Auto" && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+    // Theme
+    if (settings.theme === "Dark") {
       root.classList.add("dark");
     } else {
       root.classList.remove("dark");
+    }
+    // Font size
+    root.style.fontSize = `${settings.fontSize}px`;
+    // Compact mode
+    if (settings.compactMode) {
+      root.classList.add("compact");
+    } else {
+      root.classList.remove("compact");
+    }
+    // Night contrast
+    if (settings.nightContrast) {
+      root.classList.add("night-contrast");
+    } else {
+      root.classList.remove("night-contrast");
     }
   }, [settings]);
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
     if (!email || !password) return { success: false, error: "Please enter your email and password." };
     const name = email.split("@")[0];
-    const newUser = { id: `usr_${Date.now()}`, name: name.charAt(0).toUpperCase() + name.slice(1), email, bio: "Mindful path explorer.", points: 150, level: "Explorer" };
+    const joinDate = toISODate(new Date());
+    const newUser: UserProfile = {
+      id: `usr_${Date.now()}`,
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      email,
+      bio: "Mindful path explorer.",
+      points: 150,
+      level: "Explorer",
+      joinDate,
+    };
     setUserProfile(newUser);
     document.cookie = `session=sess_${Date.now()}; Path=/; max-age=2592000; SameSite=Lax`;
     return { success: true };
@@ -210,7 +317,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const signup = async (name: string, email: string, password: string): Promise<AuthResult> => {
     if (!name || !email || !password) return { success: false, error: "Please fill in all fields." };
     if (password.length < 6) return { success: false, error: "Password must be at least 6 characters." };
-    const newUser = { id: `usr_${Date.now()}`, name, email, bio: "Mindful path explorer.", points: 50, level: "Novice" };
+    const joinDate = toISODate(new Date());
+    const newUser: UserProfile = {
+      id: `usr_${Date.now()}`,
+      name,
+      email,
+      bio: "Mindful path explorer.",
+      points: 50,
+      level: "Novice",
+      joinDate,
+    };
     setUserProfile(newUser);
     document.cookie = `session=sess_${Date.now()}; Path=/; max-age=2592000; SameSite=Lax`;
     return { success: true };
@@ -262,7 +378,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (t.id === id) {
           const pointsGained = t.priority === "high" ? 25 : t.priority === "medium" ? 15 : 10;
           updateProfile({ points: userProfile.points + pointsGained });
-          
+
           if (t.challenge) {
             setChallenges((prevChallenges) =>
               prevChallenges.map((c) => {
@@ -283,15 +399,86 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const logMood = (mood: Mood, intensity: number, tags: string[], note: string) => {
-    const dateLabel = `Day ${moodHistory.length + 1}`;
+  const logMood = (mood: Mood, intensity: number, tags: string[], note: string, type: "quick" | "daily" = "daily") => {
+    const now = new Date();
+    const isoDate = toISODate(now);
+    const timeStr = formatTime(now);
+
     const newLog: MoodLog = {
-      date: dateLabel,
+      date: isoDate,
+      time: timeStr,
+      type,
       mood,
       note: note || (tags.length ? `Felt ${mood.label} (${tags.join(", ")})` : `Felt ${mood.label}`),
+      tags,
     };
     setMoodHistory((prev) => [newLog, ...prev]);
     updateProfile({ points: userProfile.points + 10 });
+
+    // Record firstMoodDate if not set
+    if (!userProfile.firstMoodDate) {
+      updateProfile({ firstMoodDate: isoDate });
+    }
+
+    // Check for 7-day streak to record firstWeekDate
+    const uniqueDays = new Set(moodHistory.map((h) => h.date));
+    uniqueDays.add(isoDate);
+    if (uniqueDays.size >= 7 && !userProfile.firstWeekDate) {
+      updateProfile({ firstWeekDate: isoDate });
+    }
+  };
+
+  /** Compute verified progress for a challenge based on real activity data */
+  const computeChallengeProgress = (challenge: Challenge): number => {
+    switch (challenge.verifyType) {
+      case "gratitude_journal": {
+        // Count distinct days with a daily mood log that has a note
+        const daysWithNote = new Set(
+          moodHistory
+            .filter((h) => h.type === "daily" && h.note && h.note.trim().length > 0)
+            .map((h) => h.date)
+        );
+        return Math.min(100, Math.round((daysWithNote.size / 7) * 100));
+      }
+      case "mindful_mornings": {
+        // Count days with a mood log before 9 AM
+        const earlyDays = new Set(
+          moodHistory.filter((h) => {
+            const hour = new Date(`${h.date}T${to24h(h.time)}`).getHours();
+            return hour < 9;
+          }).map((h) => h.date)
+        );
+        return Math.min(100, Math.round((earlyDays.size / 5) * 100));
+      }
+      case "mood_streak_5": {
+        // Count distinct days with any mood log up to 5
+        const uniqueDays = new Set(moodHistory.map((h) => h.date));
+        return Math.min(100, Math.round((uniqueDays.size / 5) * 100));
+      }
+      case "reflection_writer": {
+        // Count entries with non-empty notes
+        const withNotes = moodHistory.filter((h) => h.note && h.note.trim().length > 3).length;
+        return Math.min(100, Math.round((withNotes / 3) * 100));
+      }
+      case "social_spark": {
+        // Count posts by current user (non-anon or matching name)
+        const myPosts = communityPosts.filter(
+          (p) => !p.anon && p.author === userProfile.name
+        ).length;
+        return Math.min(100, Math.round((myPosts / 3) * 100));
+      }
+      case "digital_detox": {
+        return challenge.progress; // manually tracked
+      }
+      case "hydration_hero": {
+        return challenge.progress; // manually tracked
+      }
+      case "move_every_day": {
+        return challenge.progress; // manually tracked
+      }
+      default:
+        return challenge.progress;
+    }
   };
 
   const toggleChallenge = (id: number) => {
@@ -301,7 +488,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (c.status === "available") {
             return { ...c, status: "active", progress: 0 };
           } else if (c.status === "active") {
-            return { ...c, status: "completed", progress: 100 };
+            // Verify progress before completing
+            const progress = computeChallengeProgress(c);
+            if (progress >= 100) {
+              // Record firstChallengeDate if not set
+              if (!userProfile.firstChallengeDate) {
+                updateProfile({ firstChallengeDate: toISODate(new Date()) });
+              }
+              updateProfile({ points: userProfile.points + c.points });
+              return { ...c, status: "completed", progress: 100 };
+            }
+            // Not complete yet — just update the computed progress
+            return { ...c, progress };
           }
         }
         return c;
@@ -345,9 +543,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const resetAllData = () => {
     localStorage.clear();
-    setUserProfile({ name: "Aria Wells", email: "aria@mind2care.app", bio: "On a gentle journey toward calmer days.", points: 1240, level: "Sage" });
+    setUserProfile({
+      name: "Aria Wells",
+      email: "aria@mind2care.app",
+      bio: "On a gentle journey toward calmer days.",
+      points: 1240,
+      level: "Sage",
+      joinDate: "2026-01-12",
+      firstMoodDate: "2026-01-13",
+      firstWeekDate: "2026-01-19",
+      firstChallengeDate: "2026-02-02",
+    });
     setTasks(initialTasks as Task[]);
-    setMoodHistory(initialMoodHistory as MoodLog[]);
+    const today = new Date();
+    setMoodHistory(initialMoodHistory.map((log, idx) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() - (initialMoodHistory.length - 1 - idx));
+      return { ...log, date: toISODate(d), time: "09:00 AM", type: "daily" as const, tags: [] };
+    }));
     setChallenges(initialChallenges as Challenge[]);
     setCommunityPosts(initialCommunityPosts as CommunityPost[]);
     setSavedQuotes([2]);
@@ -355,8 +568,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       theme: "Light",
       fontSize: 16,
       compactMode: false,
-      reduceAnimations: false,
-      highContrast: false,
+      nightContrast: false,
       defaultAnonymous: true,
       emailInsights: true,
       dailyReminder: "08:00",
@@ -387,6 +599,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         toggleLikePost,
         toggleSaveQuote,
         resetAllData,
+        computeChallengeProgress,
       }}
     >
       {children}
@@ -398,4 +611,14 @@ export function useApp() {
   const context = useContext(AppContext);
   if (!context) throw new Error("useApp must be used within an AppProvider");
   return context;
+}
+
+/** Convert "3:45 PM" to "15:45:00" for Date parsing */
+function to24h(timeStr: string): string {
+  if (!timeStr) return "00:00:00";
+  const [time, modifier] = timeStr.split(" ");
+  let [hours, minutes] = time.split(":").map(Number);
+  if (modifier === "AM" && hours === 12) hours = 0;
+  if (modifier === "PM" && hours !== 12) hours += 12;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
 }

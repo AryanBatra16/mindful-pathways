@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Flame, Calendar } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { moods } from "@/lib/mock-data";
-import { useApp } from "@/lib/state";
+import { useApp, computeStreak, toISODate, formatDate } from "@/lib/state";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/tracker")({
@@ -21,20 +21,34 @@ function Tracker() {
 
   const allTags = ["Work", "Family", "Calm", "Anxious", "Grateful", "Tired", "Sleep", "Energy", "Social"];
 
-  // 35-day heatmap mapped from actual mood history
+  const streak = computeStreak(moodHistory);
+
+  // Build 35-day heatmap based on calendar dates
+  // Each cell represents one calendar day, newest = bottom-right
   const heatmap = Array.from({ length: 35 }).map((_, i) => {
-    const historyIndex = moodHistory.length - 1 - i;
-    const log = historyIndex >= 0 ? moodHistory[historyIndex] : null;
+    const d = new Date();
+    // i=0 is 34 days ago, i=34 is today
+    d.setDate(d.getDate() - (34 - i));
+    const dateStr = toISODate(d);
+    const dayLogs = moodHistory.filter((h) => h.date === dateStr);
+    const hasLog = dayLogs.length > 0;
+    // Use the highest mood value of the day for color
+    const bestLog = dayLogs.length > 0
+      ? dayLogs.reduce((best, h) => h.mood.value > best.mood.value ? h : best, dayLogs[0])
+      : null;
     return {
       i,
-      color: log ? log.mood.color : "muted",
-      opacity: log ? 0.5 + (log.mood.value / 10) : 0.15,
+      dateStr,
+      color: bestLog ? bestLog.mood.color : "muted",
+      opacity: bestLog ? 0.4 + (bestLog.mood.value / 10) : 0.12,
+      hasLog,
+      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     };
   });
 
   const handleSaveMood = () => {
-    logMood(moods[selected], intensity, tags, note);
-    toast.success("Mood logged successfully! Keep up the good work.");
+    logMood(moods[selected], intensity, tags, note, "daily");
+    toast.success("Daily mood logged! Keep up the good work. 🌸");
     setNote("");
     setTags([]);
   };
@@ -46,7 +60,7 @@ function Tracker() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Mood logger */}
         <div className="lg:col-span-2 glass rounded-3xl p-6 shadow-card">
-          <h3 className="font-semibold mb-4">How are you feeling?</h3>
+          <h3 className="font-semibold mb-4">How are you feeling today?</h3>
           <div className="grid grid-cols-5 gap-3">
             {moods.map((m, i) => (
               <motion.button
@@ -107,19 +121,19 @@ function Tracker() {
           </div>
 
           <button onClick={handleSaveMood} className="mt-4 w-full py-3 rounded-2xl gradient-primary text-white font-semibold shadow-glow hover:scale-[1.01] transition-transform cursor-pointer">
-            Save Today's Mood
+            Save Daily Mood
           </button>
         </div>
 
-        {/* Streak */}
+        {/* Streak + Heatmap */}
         <div className="space-y-4">
           <motion.div whileHover={{ y: -4 }} className="glass rounded-3xl p-6 shadow-card text-center">
             <div className="inline-flex h-16 w-16 rounded-3xl gradient-coral-pink items-center justify-center shadow-glow">
               <Flame className="h-8 w-8 text-white" />
             </div>
-            <div className="text-4xl font-bold mt-3">{moodHistory.length > 0 ? Math.min(30, moodHistory.length + 1) : 0}</div>
+            <div className="text-4xl font-bold mt-3">{streak}</div>
             <div className="text-sm text-muted-foreground">day streak</div>
-            <div className="mt-3 text-xs text-muted-foreground">Best: 28 days</div>
+            <div className="mt-3 text-xs text-muted-foreground">Consecutive days logged</div>
           </motion.div>
 
           <div className="glass rounded-3xl p-6 shadow-card">
@@ -128,11 +142,16 @@ function Tracker() {
               {heatmap.map((c) => (
                 <motion.div
                   key={c.i}
+                  title={`${c.label}${c.hasLog ? " ✓" : ""}`}
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  transition={{ delay: c.i * 0.01 }}
-                  className="aspect-square rounded-md"
-                  style={{ background: c.color === "muted" ? "var(--muted)" : `var(--${c.color})`, opacity: c.opacity }}
+                  transition={{ delay: c.i * 0.008 }}
+                  className="aspect-square rounded-md cursor-default"
+                  style={{
+                    background: c.color === "muted" ? "var(--muted)" : `var(--${c.color})`,
+                    opacity: c.opacity,
+                    border: c.hasLog ? "1px solid rgba(255,255,255,0.25)" : "none",
+                  }}
                 />
               ))}
             </div>
@@ -144,26 +163,39 @@ function Tracker() {
       {/* History */}
       <div className="glass rounded-3xl p-6 shadow-card">
         <h3 className="font-semibold mb-4">Mood History</h3>
-        <div className="space-y-2">
-          {moodHistory.slice(0, 8).map((h, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="flex items-center gap-4 p-3 rounded-2xl hover:bg-muted/50 transition-colors"
-            >
-              <div className="h-10 w-10 rounded-2xl flex items-center justify-center text-xl" style={{ background: `var(--${h.mood.color})` }}>
-                {h.mood.emoji}
-              </div>
-              <div className="flex-1">
-                <div className="font-medium text-sm">{h.mood.label}</div>
-                <div className="text-xs text-muted-foreground">{h.note}</div>
-              </div>
-              <div className="text-xs text-muted-foreground">{h.date}</div>
-            </motion.div>
-          ))}
-        </div>
+        {moodHistory.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">No mood entries yet. Start by logging how you feel! 🌸</div>
+        ) : (
+          <div className="space-y-2">
+            {moodHistory.slice(0, 10).map((h, i) => {
+              const displayDate = h.date
+                ? formatDate(new Date(h.date + "T12:00:00"))
+                : "Unknown date";
+              const typeLabel = h.type === "quick" ? "Quick" : "Daily";
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex items-center gap-4 p-3 rounded-2xl hover:bg-muted/50 transition-colors"
+                >
+                  <div className="h-10 w-10 rounded-2xl flex items-center justify-center text-xl shrink-0" style={{ background: `var(--${h.mood.color})` }}>
+                    {h.mood.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{h.mood.label}</div>
+                    <div className="text-xs text-muted-foreground truncate">{h.note}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-xs font-medium">{displayDate}</div>
+                    <div className="text-xs text-muted-foreground">{h.time} · {typeLabel}</div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
