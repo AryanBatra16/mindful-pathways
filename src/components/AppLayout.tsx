@@ -145,7 +145,15 @@ export function AppLayout() {
           <div className="glass rounded-2xl p-4 shadow-soft">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center font-semibold text-white shrink-0">{userInitial}</div>
+                {/* Avatar: photo, emoji, or initial */}
+                {userProfile.avatar?.startsWith("data:") ? (
+                  <img src={userProfile.avatar} alt="avatar" className="h-10 w-10 rounded-full object-cover shrink-0" />
+                ) : userProfile.avatar ? (
+                  <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center text-xl shrink-0">{userProfile.avatar}</div>
+                ) : (
+                  <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center font-semibold text-white shrink-0">{userInitial}</div>
+                )}
+
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{userProfile.name}</p>
                   <p className="text-xs text-muted-foreground truncate">{userProfile.level} Level · {userProfile.points} pts</p>
