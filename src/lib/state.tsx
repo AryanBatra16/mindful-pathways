@@ -470,6 +470,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const myPosts = communityPosts.filter(
           (p) => !p.anon && p.author === userProfile.name
         ).length;
+        return Math.min(100, Math.round((myPosts / req) * 100));
       }
       default:
         return challenge.progress;

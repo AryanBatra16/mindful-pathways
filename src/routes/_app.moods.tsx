@@ -107,7 +107,10 @@ function Moods() {
               <YAxis domain={[0, 5]} stroke="var(--muted-foreground)" fontSize={12} />
               <Tooltip
                 contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12 }}
-                formatter={(val: number | null) => val === null ? ["No entry", "Mood"] : [val, "Avg Mood"]}
+                formatter={(val: unknown) => {
+                  if (val === null || val === undefined) return ["No entry", "Mood"];
+                  return [Number(val).toFixed(1), "Avg Mood"];
+                }}
               />
               <Line type="monotone" dataKey="mood" stroke="url(#moodGrad)" strokeWidth={3} dot={false} connectNulls={false} />
             </LineChart>
