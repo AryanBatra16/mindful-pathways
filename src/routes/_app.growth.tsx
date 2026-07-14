@@ -2,13 +2,23 @@ import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Sparkles, Trophy, TrendingUp, Lock } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { milestones } from "@/lib/mock-data";
 import { useApp } from "@/lib/state";
 
 export const Route = createFileRoute("/_app/growth")({
   head: () => ({ meta: [{ title: "Growth Map — Mind2Care" }] }),
   component: Growth,
 });
+
+/** Format an ISO date string "YYYY-MM-DD" to a nice label like "Jan 13" */
+function niceDate(isoStr: string | undefined): string {
+  if (!isoStr) return "Soon";
+  try {
+    const d = new Date(isoStr + "T12:00:00");
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  } catch {
+    return isoStr;
+  }
+}
 
 function Growth() {
   const { userProfile, moodHistory, challenges, communityPosts } = useApp();
@@ -26,6 +36,49 @@ function Growth() {
   const earnedBadgesCount = badgesList.filter(b => b.earned).length;
   const nextLevelThreshold = 1500;
   const levelProgressPercent = Math.min(100, Math.floor((userProfile.points / nextLevelThreshold) * 100));
+
+  // Compute first challenge completion date from state
+  const firstCompletedChallenge = challenges.find(c => c.status === "completed");
+
+  // Build milestones with dynamic dates from userProfile and moodHistory
+  const milestones = [
+    {
+      id: 1,
+      title: "Joined Mind2Care",
+      date: niceDate(userProfile.joinDate),
+      done: true,
+    },
+    {
+      id: 2,
+      title: "First mood logged",
+      date: moodHistory.length > 0 ? niceDate(userProfile.firstMoodDate || [...moodHistory].reverse()[0]?.date) : "Not yet",
+      done: moodHistory.length > 0,
+    },
+    {
+      id: 3,
+      title: "First 7-day streak",
+      date: new Set(moodHistory.map(h => h.date)).size >= 7 ? niceDate(userProfile.firstWeekDate) : "Soon",
+      done: new Set(moodHistory.map(h => h.date)).size >= 7,
+    },
+    {
+      id: 4,
+      title: "Completed first challenge",
+      date: firstCompletedChallenge ? niceDate(userProfile.firstChallengeDate) : "Soon",
+      done: !!firstCompletedChallenge,
+    },
+    {
+      id: 5,
+      title: "30-day mood streak",
+      date: new Set(moodHistory.map(h => h.date)).size >= 30 ? "Achieved!" : `${new Set(moodHistory.map(h => h.date)).size}/30 days`,
+      done: new Set(moodHistory.map(h => h.date)).size >= 30,
+    },
+    {
+      id: 6,
+      title: "Reach Sage level",
+      date: userProfile.points >= 1000 ? "Achieved!" : `${userProfile.points}/1000 pts`,
+      done: userProfile.points >= 1000,
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -78,33 +131,26 @@ function Growth() {
           </div>
         </div>
 
-        {/* Progress tree timeline */}
+        {/* Milestones */}
         <div className="glass rounded-3xl p-6 shadow-card">
           <h3 className="font-semibold mb-4">Milestones</h3>
           <div className="relative pl-8">
             <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-border" />
-            {milestones.map((m, i) => {
-              // Dynamically complete some milestones based on state
-              let isDone = m.done;
-              if (m.id === 2 && moodHistory.length > 0) isDone = true;
-              if (m.id === 3 && moodHistory.length >= 7) isDone = true;
-              if (m.id === 4 && challenges.some(c => c.status === "completed")) isDone = true;
-              return (
-                <motion.div
-                  key={m.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.08 }}
-                  className="relative pb-5 last:pb-0"
-                >
-                  <div className={`absolute -left-[26px] top-1 h-5 w-5 rounded-full flex items-center justify-center ${isDone ? "gradient-turquoise-green" : "bg-muted"}`}>
-                    {isDone && <span className="text-white text-xs">✓</span>}
-                  </div>
-                  <div className={`text-sm font-medium ${isDone ? "" : "text-muted-foreground"}`}>{m.title}</div>
-                  <div className="text-xs text-muted-foreground">{m.date}</div>
-                </motion.div>
-              );
-            })}
+            {milestones.map((m, i) => (
+              <motion.div
+                key={m.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.08 }}
+                className="relative pb-5 last:pb-0"
+              >
+                <div className={`absolute -left-[26px] top-1 h-5 w-5 rounded-full flex items-center justify-center ${m.done ? "gradient-turquoise-green" : "bg-muted"}`}>
+                  {m.done && <span className="text-white text-xs">✓</span>}
+                </div>
+                <div className={`text-sm font-medium ${m.done ? "" : "text-muted-foreground"}`}>{m.title}</div>
+                <div className={`text-xs mt-0.5 ${m.done ? "text-muted-foreground" : "text-muted-foreground/60"}`}>{m.date}</div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </div>
