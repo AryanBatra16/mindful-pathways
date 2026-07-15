@@ -8,7 +8,8 @@
     {
       "binding": "DB",
       "database_name": "mind2care-db",
-      "database_id": "91e902c0-4b58-4fae-aec5-c59481b297bc"
+      "database_id": "91e902c0-4b58-4fae-aec5-c59481b297bc",
+      "migrations_dir": "drizzle"
     }
   ]
 }
