@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-// @ts-ignore - Vinxi is resolved at runtime by TanStack Start
-import { getEvent } from "vinxi/http";
+import { getRequest, setResponseHeader } from "@tanstack/react-start/server";
 import { getDb } from "../db/index";
 import { signUpUser, signInUser, signOutUser, getCurrentUser } from "./auth-actions";
 import {
@@ -24,21 +23,22 @@ import { eq, and } from "drizzle-orm";
 
 // ─── Helper to retrieve D1 Database from Cloudflare Context ──────────────────
 export function getContextDb() {
-  const event = getEvent();
-  if (!event) {
-    throw new Error("No request event context found.");
+  const request = getRequest();
+  if (!request) {
+    throw new Error("No request context found.");
   }
-  const cloudflare = event.context.cloudflare;
-  if (!cloudflare || !cloudflare.env || !cloudflare.env.DB) {
+  const cloudflare = (request as any).runtime?.cloudflare;
+  const d1 = cloudflare?.env?.DB;
+  if (!d1) {
     throw new Error("Cloudflare D1 Database binding 'DB' not found.");
   }
-  return getDb(cloudflare.env.DB);
+  return getDb(d1);
 }
 
 // ─── Helper to parse session user from request cookie ────────────────────────
 export async function getAuthenticatedUser() {
-  const event = getEvent();
-  const cookieHeader = event?.node?.req?.headers?.cookie || null;
+  const request = getRequest();
+  const cookieHeader = request.headers.get("cookie") || null;
   const db = getContextDb();
   const user = await getCurrentUser(db, cookieHeader);
   if (!user) {
@@ -55,8 +55,7 @@ export const signupServerFn = createServerFn({ method: "POST" })
     const db = getContextDb();
     const res = await signUpUser(db, data);
     if (res.success && res.cookie) {
-      const event = getEvent();
-      event?.node?.res.setHeader("Set-Cookie", res.cookie);
+      setResponseHeader("Set-Cookie", res.cookie);
     }
     return res;
   });
@@ -67,20 +66,19 @@ export const loginServerFn = createServerFn({ method: "POST" })
     const db = getContextDb();
     const res = await signInUser(db, data);
     if (res.success && res.cookie) {
-      const event = getEvent();
-      event?.node?.res.setHeader("Set-Cookie", res.cookie);
+      setResponseHeader("Set-Cookie", res.cookie);
     }
     return res;
   });
 
 export const logoutServerFn = createServerFn({ method: "POST" })
   .handler(async () => {
-    const event = getEvent();
-    const cookieHeader = event?.node?.req?.headers?.cookie || null;
+    const request = getRequest();
+    const cookieHeader = request.headers.get("cookie") || null;
     const token = parseSessionTokenFromCookie(cookieHeader);
     const db = getContextDb();
     const res = await signOutUser(db, token);
-    event?.node?.res.setHeader("Set-Cookie", res.cookie);
+    setResponseHeader("Set-Cookie", res.cookie);
     return { success: true };
   });
 
