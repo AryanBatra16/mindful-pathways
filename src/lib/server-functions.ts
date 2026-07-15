@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest, setResponseHeader } from "@tanstack/start-server-core";
 import { getDb } from "../db/index";
 import { signUpUser, signInUser, signOutUser, getCurrentUser } from "./auth-actions";
 import {
@@ -20,20 +21,19 @@ import { parseSessionTokenFromCookie } from "./session";
 import { saved_quotes, user_challenges } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 
-// Dynamically import server utilities to bypass client-side build-time import-protection
-async function getServerUtilities() {
-  if (typeof window === "undefined") {
-    return await import("@tanstack/react-start/server");
-  }
-  return {
-    getRequest: () => { throw new Error("getRequest can only be called on the server"); },
-    setResponseHeader: () => { throw new Error("setResponseHeader can only be called on the server"); }
-  };
-}
-
 // ─── Helper to retrieve D1 Database from Cloudflare Context ──────────────────
 export async function getContextDb() {
-  const { getRequest } = await getServerUtilities();
+  // In local Node.js dev mode (Vite), use the local SQLite shim directly.
+  // This avoids needing workerd/miniflare entirely.
+  // import.meta.env.DEV is replaced with `false` at build time so the shim
+  // and better-sqlite3 are completely tree-shaken out of the production bundle.
+  if (import.meta.env.DEV) {
+    // Dynamic import keeps better-sqlite3 out of the server bundle entirely
+    const { getLocalD1 } = await import("./d1-local-shim");
+    return getDb(getLocalD1());
+  }
+
+  // In production Cloudflare Workers, the D1 binding comes via request runtime.
   const request = getRequest();
   if (!request) {
     throw new Error("No request context found.");
@@ -48,7 +48,6 @@ export async function getContextDb() {
 
 // ─── Helper to parse session user from request cookie ────────────────────────
 export async function getAuthenticatedUser() {
-  const { getRequest } = await getServerUtilities();
   const request = getRequest();
   const cookieHeader = request.headers.get("cookie") || null;
   const db = await getContextDb();
@@ -67,7 +66,6 @@ export const signupServerFn = createServerFn({ method: "POST" })
     const db = await getContextDb();
     const res = await signUpUser(db, data);
     if (res.success && res.cookie) {
-      const { setResponseHeader } = await getServerUtilities();
       setResponseHeader("Set-Cookie", res.cookie);
     }
     return res;
@@ -79,7 +77,6 @@ export const loginServerFn = createServerFn({ method: "POST" })
     const db = await getContextDb();
     const res = await signInUser(db, data);
     if (res.success && res.cookie) {
-      const { setResponseHeader } = await getServerUtilities();
       setResponseHeader("Set-Cookie", res.cookie);
     }
     return res;
@@ -87,7 +84,6 @@ export const loginServerFn = createServerFn({ method: "POST" })
 
 export const logoutServerFn = createServerFn({ method: "POST" })
   .handler(async () => {
-    const { getRequest, setResponseHeader } = await getServerUtilities();
     const request = getRequest();
     const cookieHeader = request.headers.get("cookie") || null;
     const token = parseSessionTokenFromCookie(cookieHeader);
