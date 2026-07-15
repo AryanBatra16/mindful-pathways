@@ -18,6 +18,13 @@ export interface AuthUser {
   points?: number | null;
   level?: string | null;
   theme?: string | null;
+  font_size?: number | null;
+  compact_mode?: boolean | null;
+  reduce_animations?: boolean | null;
+  high_contrast?: boolean | null;
+  default_anonymous?: boolean | null;
+  email_insights?: boolean | null;
+  daily_reminder?: string | null;
 }
 
 export interface AuthResponse {
@@ -142,6 +149,13 @@ export async function signInUser(
     points: user.points,
     level: user.level,
     theme: user.theme,
+    font_size: user.font_size,
+    compact_mode: user.compact_mode,
+    reduce_animations: user.reduce_animations,
+    high_contrast: user.high_contrast,
+    default_anonymous: user.default_anonymous,
+    email_insights: user.email_insights,
+    daily_reminder: user.daily_reminder,
   };
 
   return {
@@ -208,5 +222,12 @@ export async function getCurrentUser(
     points: user.points,
     level: user.level,
     theme: user.theme,
+    font_size: user.font_size,
+    compact_mode: user.compact_mode,
+    reduce_animations: user.reduce_animations,
+    high_contrast: user.high_contrast,
+    default_anonymous: user.default_anonymous,
+    email_insights: user.email_insights,
+    daily_reminder: user.daily_reminder,
   };
 }

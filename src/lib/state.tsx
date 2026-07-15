@@ -1,5 +1,27 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { tasks as initialTasks, challenges as initialChallenges, communityPosts as initialCommunityPosts, moodHistory as initialMoodHistory } from "./mock-data";
+import {
+  signupServerFn,
+  loginServerFn,
+  logoutServerFn,
+  getCurrentUserServerFn,
+  updateUserProfileServerFn,
+  getMoodHistoryServerFn,
+  addMoodLogServerFn,
+  deleteMoodLogServerFn,
+  getTasksServerFn,
+  addTaskServerFn,
+  updateTaskStatusServerFn,
+  deleteTaskServerFn,
+  getCommunityPostsServerFn,
+  createCommunityPostServerFn,
+  togglePostLikeServerFn,
+  getSavedQuotesServerFn,
+  toggleSaveQuoteServerFn,
+  getUserChallengesServerFn,
+  saveUserChallengeServerFn,
+} from "./server-functions";
+import { toast } from "sonner";
 
 export interface Task {
   id: number | string;
@@ -18,15 +40,12 @@ export interface Mood {
 }
 
 export interface MoodLog {
-  /** ISO date string YYYY-MM-DD */
+  id?: string;
   date: string;
-  /** Human-readable time e.g. "3:45 PM" */
   time: string;
-  /** "quick" = quick log from dashboard; "daily" = full daily tracker */
   type: "quick" | "daily";
   mood: Mood;
   note: string;
-  /** Tags selected at log time */
   tags: string[];
 }
 
@@ -39,11 +58,8 @@ export interface Challenge {
   status: "active" | "available" | "completed";
   category: string;
   color: string;
-  /** Type key used for verification */
   verifyType?: string;
-  /** Human-readable requirement description */
   requirement?: string;
-  /** How many actions are needed to complete */
   requirementCount?: number;
 }
 
@@ -115,26 +131,22 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-/** Format a Date to "Mon, Jul 14" style */
 export function formatDate(d: Date): string {
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
 
-/** Format a Date to "3:45 PM" style */
 export function formatTime(d: Date): string {
   return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-/** Get ISO date string YYYY-MM-DD from a Date */
 export function toISODate(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
-/** Compute how many distinct calendar days have at least one mood log */
 export function computeStreak(history: MoodLog[]): number {
   if (history.length === 0) return 0;
   const uniqueDays = new Set(history.map((h) => h.date));
-  const sortedDays = Array.from(uniqueDays).sort().reverse(); // newest first
+  const sortedDays = Array.from(uniqueDays).sort().reverse();
   const today = toISODate(new Date());
   let streak = 0;
   let checkDate = new Date();
@@ -143,7 +155,6 @@ export function computeStreak(history: MoodLog[]): number {
     if (uniqueDays.has(dateStr)) {
       streak++;
     } else if (dateStr !== today || streak > 0) {
-      // Allow today to be missing (haven't logged yet today)
       if (streak > 0) break;
     }
     checkDate.setDate(checkDate.getDate() - 1);
@@ -152,147 +163,158 @@ export function computeStreak(history: MoodLog[]): number {
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("m2c_profile");
-      if (saved) return JSON.parse(saved);
-    }
-    return {
-      name: "Aria Wells",
-      email: "aria@mind2care.app",
-      bio: "On a gentle journey toward calmer days.",
-      points: 1240,
-      level: "Sage",
-      joinDate: "2026-01-12",
-      firstMoodDate: "2026-01-13",
-      firstWeekDate: "2026-01-19",
-      firstChallengeDate: "2026-02-02",
-    };
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    name: "Guest",
+    email: "",
+    bio: "On a gentle journey toward calmer days.",
+    points: 0,
+    level: "Novice",
   });
 
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("m2c_tasks");
-      if (saved) return JSON.parse(saved);
-    }
-    return initialTasks as Task[];
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [moodHistory, setMoodHistory] = useState<MoodLog[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges as Challenge[]);
+  const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([]);
+  const [savedQuotes, setSavedQuotes] = useState<number[]>([]);
+  const [settings, setSettings] = useState<AppSettings>({
+    theme: "Light",
+    fontSize: 16,
+    compactMode: false,
+    nightContrast: false,
+    defaultAnonymous: true,
+    emailInsights: true,
+    dailyReminder: "08:00",
   });
 
-  const [moodHistory, setMoodHistory] = useState<MoodLog[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("m2c_moodHistory");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Migrate old entries that have "Day X" date format
-        return parsed.map((log: MoodLog, idx: number) => {
-          if (!log.date || log.date.startsWith("Day ")) {
-            const d = new Date();
-            d.setDate(d.getDate() - (parsed.length - 1 - idx));
-            return {
-              ...log,
-              date: toISODate(d),
-              time: log.time || "12:00 PM",
-              type: log.type || "daily",
-              tags: log.tags || [],
-            };
-          }
-          return { ...log, time: log.time || "12:00 PM", type: log.type || "daily", tags: log.tags || [] };
+  const [isLoading, setIsLoading] = useState(true);
+
+  // ─── Sync user data from D1 database on mount ──────────────────────────────
+  const syncDatabase = async () => {
+    try {
+      const user = await getCurrentUserServerFn();
+      if (user) {
+        setUserProfile({
+          id: user.id,
+          name: user.name || "Aria Wells",
+          email: user.email,
+          bio: user.bio || "On a gentle journey toward calmer days.",
+          points: user.points || 0,
+          level: user.level || "Novice",
+          avatar: user.theme || "", // Using theme column as avatar storage or customize
         });
+
+        // Set Settings
+        setSettings({
+          theme: (user.theme === "Dark" ? "Dark" : "Light") as "Light" | "Dark",
+          fontSize: user.font_size || 16,
+          compactMode: !!user.compact_mode,
+          nightContrast: !!user.high_contrast,
+          defaultAnonymous: !!user.default_anonymous,
+          emailInsights: !!user.email_insights,
+          dailyReminder: user.daily_reminder || "08:00",
+        });
+
+        // Fetch Tasks
+        const dbTasks = await getTasksServerFn();
+        setTasks(
+          dbTasks.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            priority: (t.priority || "medium") as "high" | "medium" | "low",
+            status: (t.status || "today") as "today" | "week" | "later" | "completed",
+            due: t.due || "Today",
+            challenge: t.challenge_id || null,
+          }))
+        );
+
+        // Fetch Mood History
+        const dbMoods = await getMoodHistoryServerFn();
+        setMoodHistory(
+          dbMoods.map((m: any) => {
+            const dateObj = m.created_at ? new Date(m.created_at * 1000) : new Date();
+            const matchingMood =
+              m.label === "Joyful"
+                ? { emoji: "😄", label: "Joyful", value: 5, color: "green" }
+                : m.label === "Good"
+                ? { emoji: "🙂", label: "Good", value: 4, color: "turquoise" }
+                : m.label === "Okay"
+                ? { emoji: "😐", label: "Okay", value: 3, color: "blue" }
+                : m.label === "Low"
+                ? { emoji: "😔", label: "Low", value: 2, color: "purple" }
+                : { emoji: "😢", label: "Sad", value: 1, color: "pink" };
+
+            return {
+              id: m.id,
+              date: toISODate(dateObj),
+              time: formatTime(dateObj),
+              type: "daily" as const,
+              mood: matchingMood,
+              note: m.note || "",
+              tags: m.tags ? m.tags.split(",") : [],
+            };
+          })
+        );
+
+        // Fetch Community Posts
+        const dbPosts = await getCommunityPostsServerFn();
+        setCommunityPosts(
+          dbPosts.map((p: any) => ({
+            id: p.id,
+            author: p.anon ? "Anonymous" : p.author_name || "Anonymous",
+            anon: !!p.anon,
+            time: "Recently",
+            category: p.category || "Self-care",
+            content: p.content,
+            reactions: p.likesCount || 0,
+            color: p.color || "coral",
+            liked: !!p.isLiked,
+          }))
+        );
+
+        // Fetch Saved Quotes
+        const dbSavedQuotes = await getSavedQuotesServerFn();
+        setSavedQuotes(dbSavedQuotes);
+
+        // Fetch Challenges
+        const dbChallenges = await getUserChallengesServerFn();
+        setChallenges((prev) =>
+          prev.map((c) => {
+            const matched = dbChallenges.find((dbC: any) => dbC.challenge_id === c.id);
+            if (matched) {
+              return {
+                ...c,
+                progress: matched.progress ?? 0,
+                status: (matched.status || "available") as "active" | "available" | "completed",
+              };
+            }
+            return c;
+          })
+        );
       }
+    } catch (err) {
+      console.error("Failed to sync database state:", err);
+    } finally {
+      setIsLoading(false);
     }
-    // Migrate initial mock data to real dates
-    const today = new Date();
-    return initialMoodHistory.map((log, idx) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() - (initialMoodHistory.length - 1 - idx));
-      return {
-        ...log,
-        date: toISODate(d),
-        time: "09:00 AM",
-        type: "daily" as const,
-        tags: [],
-      };
-    });
-  });
-
-  const [challenges, setChallenges] = useState<Challenge[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("m2c_challenges");
-      if (saved) return JSON.parse(saved);
-    }
-    return initialChallenges as Challenge[];
-  });
-
-  const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("m2c_communityPosts");
-      if (saved) return JSON.parse(saved);
-    }
-    return initialCommunityPosts as CommunityPost[];
-  });
-
-  const [savedQuotes, setSavedQuotes] = useState<number[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("m2c_savedQuotes");
-      if (saved) return JSON.parse(saved);
-    }
-    return [2];
-  });
-
-  const [settings, setSettings] = useState<AppSettings>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("m2c_settings");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Migrate old settings: rename highContrast -> nightContrast, remove reduceAnimations/auto theme
-        return {
-          theme: parsed.theme === "Auto" ? "Light" : (parsed.theme || "Light"),
-          fontSize: parsed.fontSize || 16,
-          compactMode: parsed.compactMode || false,
-          nightContrast: parsed.nightContrast ?? parsed.highContrast ?? false,
-          defaultAnonymous: parsed.defaultAnonymous ?? true,
-          emailInsights: parsed.emailInsights ?? true,
-          dailyReminder: parsed.dailyReminder || "08:00",
-        };
-      }
-    }
-    return {
-      theme: "Light",
-      fontSize: 16,
-      compactMode: false,
-      nightContrast: false,
-      defaultAnonymous: true,
-      emailInsights: true,
-      dailyReminder: "08:00",
-    };
-  });
-
-  // Sync state to localStorage
-  useEffect(() => { localStorage.setItem("m2c_profile", JSON.stringify(userProfile)); }, [userProfile]);
-  useEffect(() => { localStorage.setItem("m2c_tasks", JSON.stringify(tasks)); }, [tasks]);
-  useEffect(() => { localStorage.setItem("m2c_moodHistory", JSON.stringify(moodHistory)); }, [moodHistory]);
-  useEffect(() => { localStorage.setItem("m2c_challenges", JSON.stringify(challenges)); }, [challenges]);
-  useEffect(() => { localStorage.setItem("m2c_communityPosts", JSON.stringify(communityPosts)); }, [communityPosts]);
-  useEffect(() => { localStorage.setItem("m2c_savedQuotes", JSON.stringify(savedQuotes)); }, [savedQuotes]);
+  };
 
   useEffect(() => {
-    localStorage.setItem("m2c_settings", JSON.stringify(settings));
+    syncDatabase();
+  }, []);
+
+  useEffect(() => {
     const root = document.documentElement;
-    // Theme
     if (settings.theme === "Dark") {
       root.classList.add("dark");
     } else {
       root.classList.remove("dark");
     }
-    // Font size
     root.style.fontSize = `${settings.fontSize}px`;
-    // Compact mode
     if (settings.compactMode) {
       root.classList.add("compact");
     } else {
       root.classList.remove("compact");
     }
-    // Night contrast
     if (settings.nightContrast) {
       root.classList.add("night-contrast");
     } else {
@@ -301,82 +323,78 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [settings]);
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
-    if (!email || !password) return { success: false, error: "Please enter your email and password." };
-    const name = email.split("@")[0];
-    const joinDate = toISODate(new Date());
-    const newUser: UserProfile = {
-      id: `usr_${Date.now()}`,
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      email,
-      bio: "Mindful path explorer.",
-      points: 150,
-      level: "Explorer",
-      joinDate,
-    };
-    setUserProfile(newUser);
-    document.cookie = `session=sess_${Date.now()}; Path=/; max-age=2592000; SameSite=Lax`;
-    return { success: true };
+    const res = await loginServerFn({ data: { email, password } });
+    if (res.success) {
+      document.cookie = `session=${res.user?.id}; Path=/; max-age=2592000; SameSite=Lax`;
+      await syncDatabase();
+      return { success: true };
+    }
+    return { success: false, error: res.error };
   };
 
   const signup = async (name: string, email: string, password: string): Promise<AuthResult> => {
-    if (!name || !email || !password) return { success: false, error: "Please fill in all fields." };
-    if (password.length < 6) return { success: false, error: "Password must be at least 6 characters." };
-    const joinDate = toISODate(new Date());
-    const newUser: UserProfile = {
-      id: `usr_${Date.now()}`,
-      name,
-      email,
-      bio: "Mindful path explorer.",
-      points: 50,
-      level: "Novice",
-      joinDate,
-    };
-    setUserProfile(newUser);
-    document.cookie = `session=sess_${Date.now()}; Path=/; max-age=2592000; SameSite=Lax`;
-    return { success: true };
+    const res = await signupServerFn({ data: { name, email, password } });
+    if (res.success) {
+      document.cookie = `session=${res.user?.id}; Path=/; max-age=2592000; SameSite=Lax`;
+      await syncDatabase();
+      return { success: true };
+    }
+    return { success: false, error: res.error };
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await logoutServerFn();
     document.cookie = "session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
     if (typeof window !== "undefined") {
       window.location.href = "/signin";
     }
   };
 
-  const updateProfile = (profile: Partial<UserProfile>) => {
-    setUserProfile((prev) => {
-      const updated = { ...prev, ...profile };
-      let newLevel = "Novice";
-      if (updated.points >= 1500) newLevel = "Luminary";
-      else if (updated.points >= 1000) newLevel = "Sage";
-      else if (updated.points >= 500) newLevel = "Guide";
-      else if (updated.points >= 200) newLevel = "Seeker";
-      updated.level = newLevel;
-      return updated;
+  const updateProfile = async (profile: Partial<UserProfile>) => {
+    setUserProfile((prev) => ({ ...prev, ...profile }));
+    await updateUserProfileServerFn({
+      data: {
+        name: profile.name,
+        bio: profile.bio,
+        theme: profile.avatar, // Store avatar in theme column for now
+      },
     });
   };
 
-  const updateSettings = (newSettings: Partial<AppSettings>) => {
+  const updateSettings = async (newSettings: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
+    await updateUserProfileServerFn({
+      data: {
+        theme: newSettings.theme,
+        font_size: newSettings.fontSize,
+        compact_mode: newSettings.compactMode,
+        high_contrast: newSettings.nightContrast,
+        default_anonymous: newSettings.defaultAnonymous,
+        email_insights: newSettings.emailInsights,
+        daily_reminder: newSettings.dailyReminder,
+      },
+    });
   };
 
-  const addTask = (title: string, priority: "high" | "medium" | "low", due: string, challenge: string | null) => {
-    const newTask: Task = {
-      id: Date.now(),
-      title,
-      priority,
-      status: "today",
-      due: due || "Today",
-      challenge,
-    };
+  const addTask = async (title: string, priority: "high" | "medium" | "low", due: string, challenge: string | null) => {
+    const tempId = `temp_${Date.now()}`;
+    const newTask: Task = { id: tempId, title, priority, status: "today", due: due || "Today", challenge };
     setTasks((prev) => [newTask, ...prev]);
+
+    const res = await addTaskServerFn({
+      data: { title, priority, status: "today", due: due || "Today", challenge_id: challenge || undefined },
+    });
+    if (res) {
+      setTasks((prev) => prev.map((t) => (t.id === tempId ? { ...t, id: res.id } : t)));
+    }
   };
 
-  const deleteTask = (id: number | string) => {
+  const deleteTask = async (id: number | string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    await deleteTaskServerFn({ data: { taskId: String(id) } });
   };
 
-  const completeTask = (id: number | string) => {
+  const completeTask = async (id: number | string) => {
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
@@ -386,24 +404,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (t.challenge) {
             setChallenges((prevChallenges) =>
               prevChallenges.map((c) => {
-                if (c.title.toLowerCase().includes(t.challenge!.toLowerCase()) || t.challenge!.toLowerCase().includes(c.title.toLowerCase())) {
+                if (c.title.toLowerCase().includes(t.challenge!.toLowerCase())) {
                   const newProgress = Math.min(100, c.progress + 20);
                   const newStatus = newProgress === 100 ? "completed" : c.status;
+                  saveUserChallengeServerFn({ data: { challengeId: c.id, progress: newProgress, status: newStatus } });
                   return { ...c, progress: newProgress, status: newStatus };
                 }
                 return c;
               })
             );
           }
-
           return { ...t, status: "completed" };
         }
         return t;
       })
     );
+
+    await updateTaskStatusServerFn({ data: { taskId: String(id), status: "completed" } });
   };
 
-  const logMood = (mood: Mood, intensity: number, tags: string[], note: string, type: "quick" | "daily" = "daily") => {
+  const logMood = async (mood: Mood, intensity: number, tags: string[], note: string, type: "quick" | "daily" = "daily") => {
     const now = new Date();
     const isoDate = toISODate(now);
     const timeStr = formatTime(now);
@@ -419,57 +439,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMoodHistory((prev) => [newLog, ...prev]);
     updateProfile({ points: userProfile.points + 10 });
 
-    // Record firstMoodDate if not set
-    if (!userProfile.firstMoodDate) {
-      updateProfile({ firstMoodDate: isoDate });
-    }
-
-    // Check for 7-day streak to record firstWeekDate
-    const uniqueDays = new Set(moodHistory.map((h) => h.date));
-    uniqueDays.add(isoDate);
-    if (uniqueDays.size >= 7 && !userProfile.firstWeekDate) {
-      updateProfile({ firstWeekDate: isoDate });
-    }
+    await addMoodLogServerFn({
+      data: {
+        emoji: mood.emoji,
+        label: mood.label,
+        value: mood.value,
+        intensity,
+        tags: tags.join(","),
+        note: newLog.note,
+      },
+    });
   };
 
-  /** Compute verified progress for a challenge based on real activity data */
   const computeChallengeProgress = (challenge: Challenge): number => {
     const req = challenge.requirementCount || 1;
     switch (challenge.verifyType) {
       case "gratitude_journal": {
-        // Count distinct days with a daily mood log that has a note
         const daysWithNote = new Set(
-          moodHistory
-            .filter((h) => h.type === "daily" && h.note && h.note.trim().length > 0)
-            .map((h) => h.date)
+          moodHistory.filter((h) => h.type === "daily" && h.note && h.note.trim().length > 0).map((h) => h.date)
         );
         return Math.min(100, Math.round((daysWithNote.size / req) * 100));
       }
       case "mindful_mornings": {
-        // Count distinct days with a mood log before 9 AM
         const earlyDays = new Set(
-          moodHistory.filter((h) => {
-            const hour = new Date(`${h.date}T${to24h(h.time)}`).getHours();
-            return hour < 9;
-          }).map((h) => h.date)
+          moodHistory
+            .filter((h) => {
+              const hour = parseInt(h.time.split(":")[0]);
+              const isAM = h.time.toLowerCase().includes("am");
+              return isAM && hour < 9;
+            })
+            .map((h) => h.date)
         );
         return Math.min(100, Math.round((earlyDays.size / req) * 100));
       }
       case "mood_streak_5": {
-        // Count distinct days with any mood log
         const uniqueDays = new Set(moodHistory.map((h) => h.date));
         return Math.min(100, Math.round((uniqueDays.size / req) * 100));
       }
       case "reflection_writer": {
-        // Count entries with non-empty notes (more than 3 chars)
         const withNotes = moodHistory.filter((h) => h.note && h.note.trim().length > 3).length;
         return Math.min(100, Math.round((withNotes / req) * 100));
       }
       case "social_spark": {
-        // Count posts by current user (non-anon matching name)
-        const myPosts = communityPosts.filter(
-          (p) => !p.anon && p.author === userProfile.name
-        ).length;
+        const myPosts = communityPosts.filter((p) => !p.anon && p.author === userProfile.name).length;
         return Math.min(100, Math.round((myPosts / req) * 100));
       }
       default:
@@ -477,24 +489,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const toggleChallenge = (id: number) => {
+  const toggleChallenge = async (id: number) => {
     setChallenges((prev) =>
       prev.map((c) => {
         if (c.id === id) {
           if (c.status === "available") {
+            saveUserChallengeServerFn({ data: { challengeId: c.id, progress: 0, status: "active" } });
             return { ...c, status: "active", progress: 0 };
           } else if (c.status === "active") {
-            // Verify progress before completing
             const progress = computeChallengeProgress(c);
             if (progress >= 100) {
-              // Record firstChallengeDate if not set
-              if (!userProfile.firstChallengeDate) {
-                updateProfile({ firstChallengeDate: toISODate(new Date()) });
-              }
               updateProfile({ points: userProfile.points + c.points });
+              saveUserChallengeServerFn({ data: { challengeId: c.id, progress: 100, status: "completed" } });
               return { ...c, status: "completed", progress: 100 };
             }
-            // Not complete yet — just update the computed progress
             return { ...c, progress };
           }
         }
@@ -503,9 +511,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const addPost = (content: string, anon: boolean) => {
+  const addPost = async (content: string, anon: boolean) => {
+    const tempId = `temp_${Date.now()}`;
     const newPost: CommunityPost = {
-      id: Date.now(),
+      id: tempId,
       author: anon ? "Anonymous" : userProfile.name,
       anon,
       time: "Just now",
@@ -517,9 +526,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     setCommunityPosts((prev) => [newPost, ...prev]);
     updateProfile({ points: userProfile.points + 5 });
+
+    await createCommunityPostServerFn({
+      data: { category: "Self-care", content, author_name: userProfile.name, anon, color: newPost.color },
+    });
+    // Re-sync posts
+    const dbPosts = await getCommunityPostsServerFn();
+    setCommunityPosts(
+      dbPosts.map((p: any) => ({
+        id: p.id,
+        author: p.anon ? "Anonymous" : p.author_name || "Anonymous",
+        anon: !!p.anon,
+        time: "Recently",
+        category: p.category || "Self-care",
+        content: p.content,
+        reactions: p.likesCount || 0,
+        color: p.color || "coral",
+        liked: !!p.isLiked,
+      }))
+    );
   };
 
-  const toggleLikePost = (id: number | string) => {
+  const toggleLikePost = async (id: number | string) => {
     setCommunityPosts((prev) =>
       prev.map((p) => {
         if (p.id === id) {
@@ -529,46 +557,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return p;
       })
     );
+
+    await togglePostLikeServerFn({ data: { postId: String(id) } });
   };
 
-  const toggleSaveQuote = (id: number) => {
-    setSavedQuotes((prev) =>
-      prev.includes(id) ? prev.filter((qId) => qId !== id) : [...prev, id]
-    );
+  const toggleSaveQuote = async (id: number) => {
+    setSavedQuotes((prev) => (prev.includes(id) ? prev.filter((qId) => qId !== id) : [...prev, id]));
+    await toggleSaveQuoteServerFn({ data: { quoteId: id } });
   };
 
-  const resetAllData = () => {
+  const resetAllData = async () => {
+    // For D1 we can reset profile & tables or clear localStorage
     localStorage.clear();
-    setUserProfile({
-      name: "Aria Wells",
-      email: "aria@mind2care.app",
-      bio: "On a gentle journey toward calmer days.",
-      points: 1240,
-      level: "Sage",
-      joinDate: "2026-01-12",
-      firstMoodDate: "2026-01-13",
-      firstWeekDate: "2026-01-19",
-      firstChallengeDate: "2026-02-02",
-    });
-    setTasks(initialTasks as Task[]);
-    const today = new Date();
-    setMoodHistory(initialMoodHistory.map((log, idx) => {
-      const d = new Date(today);
-      d.setDate(d.getDate() - (initialMoodHistory.length - 1 - idx));
-      return { ...log, date: toISODate(d), time: "09:00 AM", type: "daily" as const, tags: [] };
-    }));
-    setChallenges(initialChallenges as Challenge[]);
-    setCommunityPosts(initialCommunityPosts as CommunityPost[]);
-    setSavedQuotes([2]);
-    setSettings({
-      theme: "Light",
-      fontSize: 16,
-      compactMode: false,
-      nightContrast: false,
-      defaultAnonymous: true,
-      emailInsights: true,
-      dailyReminder: "08:00",
-    });
+    toast.info("Local storage cleared. Re-syncing database...");
+    await syncDatabase();
   };
 
   return (
@@ -607,14 +609,4 @@ export function useApp() {
   const context = useContext(AppContext);
   if (!context) throw new Error("useApp must be used within an AppProvider");
   return context;
-}
-
-/** Convert "3:45 PM" to "15:45:00" for Date parsing */
-function to24h(timeStr: string): string {
-  if (!timeStr) return "00:00:00";
-  const [time, modifier] = timeStr.split(" ");
-  let [hours, minutes] = time.split(":").map(Number);
-  if (modifier === "AM" && hours === 12) hours = 0;
-  if (modifier === "PM" && hours !== 12) hours += 12;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
 }
