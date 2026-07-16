@@ -262,32 +262,45 @@ Do not provide professional medical advice, but offer gentle coping strategies.`
       ],
     };
 
-    // 5. Query Gemini API
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents,
-          systemInstruction,
-        }),
+    // 5. Query Gemini API with error safety
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents,
+            systemInstruction,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Gemini API Error details:", response.status, errorText);
+        let userFriendlyMsg = "I'm having trouble connecting right now. Please verify your Gemini API key.";
+        if (response.status === 400 || response.status === 403) {
+          userFriendlyMsg = "It looks like your Gemini API Key is invalid or has expired. Please check your key in Google AI Studio and update the .env file.";
+        }
+        await saveChatbotMessage(db, user.id, { role: "assistant", text: userFriendlyMsg });
+        return userFriendlyMsg;
       }
-    );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+      const result = (await response.json()) as any;
+      const assistantReply =
+        result.candidates?.[0]?.content?.parts?.[0]?.text || "I am here to support you.";
+
+      // 6. Save assistant reply to database
+      await saveChatbotMessage(db, user.id, { role: "assistant", text: assistantReply });
+
+      return assistantReply;
+    } catch (e: any) {
+      console.error("Network/Fetch Gemini call failed:", e);
+      const failMsg = "I couldn't reach the server. Please check your internet connection.";
+      await saveChatbotMessage(db, user.id, { role: "assistant", text: failMsg });
+      return failMsg;
     }
-
-    const result = (await response.json()) as any;
-    const assistantReply =
-      result.candidates?.[0]?.content?.parts?.[0]?.text || "I am here to support you.";
-
-    // 6. Save assistant reply to database
-    await saveChatbotMessage(db, user.id, { role: "assistant", text: assistantReply });
-
-    return assistantReply;
   });
 
 // ─── Saved Quotes Server Functions ───────────────────────────────────────────
