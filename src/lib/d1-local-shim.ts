@@ -188,7 +188,7 @@ class LocalD1Database {
   ): Promise<D1Result<T>[]> {
     const results: D1Result<T>[] = [];
     for (const stmt of statements) {
-      results.push(await (stmt as any).all<T>());
+      results.push(await (stmt as any).all());
     }
     return results as any;
   }
@@ -207,8 +207,7 @@ class LocalD1Database {
   withSession(constraintOrBookmark?: string): D1DatabaseSession {
     return {
       prepare: (query: string) => this.prepare(query),
-      batch: <T = unknown>(statements: D1PreparedStatement[]) => this.batch<T>(statements),
-      exec: (query: string) => this.exec(query),
+      batch: (statements: D1PreparedStatement[]) => this.batch(statements) as any,
       getBookmark: () => constraintOrBookmark ?? null,
     };
   }
@@ -219,5 +218,5 @@ class LocalD1Database {
  * Only call this from server-side Node.js dev code.
  */
 export function getLocalD1(): D1Database {
-  return new LocalD1Database();
+  return new LocalD1Database() as any;
 }
