@@ -298,7 +298,7 @@ function Settings() {
               {/* Theme — Light / Dark only */}
               <div>
                 <div className="text-sm font-medium mb-2">Theme</div>
-                <div className="grid grid-cols-2 gap-4 max-w-md">
+                <div className="grid grid-cols-2 gap-4 w-full">
                   {(["Light", "Dark"] as const).map((t) => (
                     <button
                       key={t}
