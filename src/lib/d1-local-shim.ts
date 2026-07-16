@@ -76,7 +76,7 @@ interface D1Result<T = unknown> {
 
 // ─── D1PreparedStatement shim ────────────────────────────────────────────────
 
-class LocalD1PreparedStatement implements D1PreparedStatement {
+class LocalD1PreparedStatement {
   private _query: string;
   private _bindings: unknown[] = [];
 
@@ -84,10 +84,10 @@ class LocalD1PreparedStatement implements D1PreparedStatement {
     this._query = query;
   }
 
-  bind(...values: unknown[]): LocalD1PreparedStatement {
+  bind(...values: unknown[]): D1PreparedStatement {
     const stmt = new LocalD1PreparedStatement(this._query);
     stmt._bindings = values;
-    return stmt;
+    return stmt as any;
   }
 
   async first<T = Record<string, unknown>>(_colName?: string): Promise<T | null> {
@@ -104,14 +104,14 @@ class LocalD1PreparedStatement implements D1PreparedStatement {
     }
   }
 
-  async run(): Promise<D1Result<never>> {
+  async run<T = Record<string, unknown>>(): Promise<D1Result<T>> {
     const db = getLocalDb();
     try {
       const stmt = db.prepare(this._query);
       const info = stmt.run(...this._bindings);
       return {
-        results: [],
-        success: true,
+        results: [] as T[],
+        success: true as const,
         meta: {
           changed_db: info.changes > 0,
           changes: info.changes,
@@ -121,7 +121,7 @@ class LocalD1PreparedStatement implements D1PreparedStatement {
           rows_read: 0,
           rows_written: info.changes,
         },
-      };
+      } as any;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new Error(`D1 shim run() error: ${msg}\nQuery: ${this._query}`);
@@ -135,7 +135,7 @@ class LocalD1PreparedStatement implements D1PreparedStatement {
       const rows = stmt.all(...this._bindings) as T[];
       return {
         results: rows,
-        success: true,
+        success: true as const,
         meta: {
           changed_db: false,
           changes: 0,
@@ -145,20 +145,23 @@ class LocalD1PreparedStatement implements D1PreparedStatement {
           rows_read: rows.length,
           rows_written: 0,
         },
-      };
+      } as any;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new Error(`D1 shim all() error: ${msg}\nQuery: ${this._query}`);
     }
   }
 
-  async raw<T = unknown[]>(_options?: { columnNames: true }): Promise<T[]> {
+  raw<T = unknown[]>(options: { columnNames: true }): Promise<[string[], ...T[]]>;
+  raw<T = unknown[]>(options?: { columnNames?: false }): Promise<T[]>;
+  async raw<T = unknown[]>(options?: { columnNames?: boolean }): Promise<any> {
     const db = getLocalDb();
     try {
       const stmt = db.prepare(this._query);
-      if (_options?.columnNames) {
-        const rows = stmt.raw(true).all(...this._bindings);
-        return rows as T[];
+      if (options?.columnNames) {
+        const columns = stmt.columns().map((c: any) => c.name);
+        const rows = stmt.raw().all(...this._bindings) as T[];
+        return [columns, ...rows] as any;
       }
       const rows = stmt.raw().all(...this._bindings);
       return rows as T[];
@@ -171,9 +174,9 @@ class LocalD1PreparedStatement implements D1PreparedStatement {
 
 // ─── D1Database shim ─────────────────────────────────────────────────────────
 
-class LocalD1Database implements D1Database {
-  prepare(query: string): LocalD1PreparedStatement {
-    return new LocalD1PreparedStatement(query);
+class LocalD1Database {
+  prepare(query: string): D1PreparedStatement {
+    return new LocalD1PreparedStatement(query) as any;
   }
 
   async dump(): Promise<ArrayBuffer> {
@@ -185,9 +188,9 @@ class LocalD1Database implements D1Database {
   ): Promise<D1Result<T>[]> {
     const results: D1Result<T>[] = [];
     for (const stmt of statements) {
-      results.push(await (stmt as LocalD1PreparedStatement).all<T>());
+      results.push(await (stmt as any).all<T>());
     }
-    return results;
+    return results as any;
   }
 
   async exec(query: string): Promise<D1ExecResult> {
@@ -201,8 +204,13 @@ class LocalD1Database implements D1Database {
     }
   }
 
-  withSession(): D1Database {
-    return this;
+  withSession(constraintOrBookmark?: string): D1DatabaseSession {
+    return {
+      prepare: (query: string) => this.prepare(query),
+      batch: <T = unknown>(statements: D1PreparedStatement[]) => this.batch<T>(statements),
+      exec: (query: string) => this.exec(query),
+      getBookmark: () => constraintOrBookmark ?? null,
+    };
   }
 }
 

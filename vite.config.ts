@@ -137,7 +137,7 @@ export default defineConfig(async (env) => {
       },
       plugins: [
         serverModuleClientStub,
-        tanstackStart({ target: "cloudflare-pages" }),
+        tanstackStart({ target: "cloudflare-pages" } as any),
         react(),
         tailwindcss(),
         tsconfigPaths({ projects: ["./tsconfig.json"] }),
