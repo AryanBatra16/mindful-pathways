@@ -146,6 +146,13 @@ export function toISODate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export function getQuoteOfTheDay<T>(quotesList: T[]): T {
+  if (!quotesList || quotesList.length === 0) return null as any;
+  const d = new Date();
+  const index = (d.getFullYear() * 37 + (d.getMonth() + 1) * 31 + d.getDate()) % quotesList.length;
+  return quotesList[index];
+}
+
 export function computeStreak(history: MoodLog[]): number {
   if (history.length === 0) return 0;
   const uniqueDays = new Set(history.map((h) => h.date));

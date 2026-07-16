@@ -4,7 +4,7 @@ import { Flame, TrendingUp, Sparkles, Smile, MessageCircleHeart, Trophy, ArrowRi
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { PageHeader } from "@/components/PageHeader";
 import { quotes, moods } from "@/lib/mock-data";
-import { useApp, computeStreak, toISODate } from "@/lib/state";
+import { useApp, computeStreak, toISODate, getQuoteOfTheDay } from "@/lib/state";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/dashboard")({
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/dashboard")({
 function Dashboard() {
   const { userProfile, moodHistory, challenges, logMood, computeChallengeProgress } = useApp();
 
-  const todayQuote = quotes[0];
+  const todayQuote = getQuoteOfTheDay(quotes);
   const activeChallenge = challenges.find((c) => c.status === "active") || challenges[0];
   const activeChallengeProgress = activeChallenge
     ? (activeChallenge.status === "completed" ? 100 : computeChallengeProgress(activeChallenge))

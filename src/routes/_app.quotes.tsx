@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Heart, ChevronDown, ChevronUp, Bookmark } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { quotes } from "@/lib/mock-data";
-import { useApp } from "@/lib/state";
+import { useApp, getQuoteOfTheDay } from "@/lib/state";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/quotes")({
@@ -21,7 +21,7 @@ function Quotes() {
   const [savedExpanded, setSavedExpanded] = useState(true);
 
   const filtered = cat === "all" ? quotes : quotes.filter((q) => q.category === cat);
-  const todayQuote = quotes[0];
+  const todayQuote = getQuoteOfTheDay(quotes);
   const isTodayQuoteSaved = savedQuotes.includes(todayQuote.id);
 
   // Liked quotes
