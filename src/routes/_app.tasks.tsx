@@ -56,9 +56,17 @@ function Tasks() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <PageHeader title="Mindful Tasks" subtitle="Small, intentional steps that gently move you forward." accent="green" />
-        <button onClick={() => setOpen(true)} className="px-5 py-2.5 rounded-2xl gradient-primary text-white font-semibold shadow-glow hover:scale-105 transition-transform flex items-center gap-2 cursor-pointer">
+      <PageHeader
+        title="Mindful Tasks"
+        subtitle="Small, intentional steps that gently move you forward."
+        accent="green"
+      />
+
+      <div className="flex justify-start">
+        <button
+          onClick={() => setOpen(true)}
+          className="px-5 py-2.5 rounded-2xl gradient-primary text-white font-semibold shadow-glow hover:scale-105 transition-transform flex items-center gap-2 cursor-pointer"
+        >
           <Plus className="h-4 w-4" /> Add Task
         </button>
       </div>
