@@ -298,15 +298,15 @@ function Settings() {
               {/* Theme — Light / Dark only */}
               <div>
                 <div className="text-sm font-medium mb-2">Theme</div>
-                <div className="grid grid-cols-2 gap-3 max-w-xs">
+                <div className="grid grid-cols-2 gap-4 max-w-md">
                   {(["Light", "Dark"] as const).map((t) => (
                     <button
                       key={t}
                       onClick={() => updateSettings({ theme: t })}
-                      className={`p-4 rounded-2xl glass shadow-soft hover:shadow-glow transition-all cursor-pointer flex items-center justify-center gap-2 ${settings.theme === t ? "border-primary border-2" : ""}`}
+                      className={`py-6 px-4 rounded-3xl glass shadow-soft hover:shadow-glow transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${settings.theme === t ? "border-primary border-2" : ""}`}
                     >
-                      <span>{t === "Light" ? "☀️" : "🌙"}</span>
-                      <span className="text-sm font-medium">{t}</span>
+                      <span className="text-3xl">{t === "Light" ? "☀️" : "🌙"}</span>
+                      <span className="text-sm font-semibold">{t}</span>
                     </button>
                   ))}
                 </div>
