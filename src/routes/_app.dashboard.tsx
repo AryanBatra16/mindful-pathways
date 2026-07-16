@@ -49,9 +49,16 @@ function Dashboard() {
     return { day: dayName, mood: avgMood };
   });
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  };
+
   return (
     <div className="space-y-6">
-      <PageHeader title={`Good morning, ${userProfile.name.split(" ")[0]} 🌸`} subtitle="Here's a gentle look at your wellness today." accent="coral" />
+      <PageHeader title={`${getGreeting()}, ${userProfile.name.split(" ")[0]} 🌸`} subtitle="Here's a gentle look at your wellness today." accent="coral" />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
