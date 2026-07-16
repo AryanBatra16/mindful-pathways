@@ -90,16 +90,17 @@ class LocalD1PreparedStatement implements D1PreparedStatement {
     return stmt;
   }
 
-  async first<T = Record<string, unknown>>(colName?: string): Promise<T | null> {
+  async first<T = Record<string, unknown>>(_colName?: string): Promise<T | null> {
     const db = getLocalDb();
     try {
       const stmt = db.prepare(this._query);
-      const row = stmt.get(...this._bindings) as any;
+      const row = stmt.get(...this._bindings) as Record<string, unknown> | undefined;
       if (!row) return null;
-      if (colName !== undefined) return (row[colName] ?? null) as T;
+      if (_colName !== undefined) return (row[_colName] ?? null) as T;
       return row as T;
-    } catch (e: any) {
-      throw new Error(`D1 shim first() error: ${e.message}\nQuery: ${this._query}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`D1 shim first() error: ${msg}\nQuery: ${this._query}`);
     }
   }
 
@@ -121,8 +122,9 @@ class LocalD1PreparedStatement implements D1PreparedStatement {
           rows_written: info.changes,
         },
       };
-    } catch (e: any) {
-      throw new Error(`D1 shim run() error: ${e.message}\nQuery: ${this._query}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`D1 shim run() error: ${msg}\nQuery: ${this._query}`);
     }
   }
 
@@ -144,23 +146,25 @@ class LocalD1PreparedStatement implements D1PreparedStatement {
           rows_written: 0,
         },
       };
-    } catch (e: any) {
-      throw new Error(`D1 shim all() error: ${e.message}\nQuery: ${this._query}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`D1 shim all() error: ${msg}\nQuery: ${this._query}`);
     }
   }
 
-  async raw<T = unknown[]>(options?: { columnNames: true }): Promise<T[]> {
+  async raw<T = unknown[]>(_options?: { columnNames: true }): Promise<T[]> {
     const db = getLocalDb();
     try {
       const stmt = db.prepare(this._query);
-      if (options?.columnNames) {
+      if (_options?.columnNames) {
         const rows = stmt.raw(true).all(...this._bindings);
         return rows as T[];
       }
       const rows = stmt.raw().all(...this._bindings);
       return rows as T[];
-    } catch (e: any) {
-      throw new Error(`D1 shim raw() error: ${e.message}\nQuery: ${this._query}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`D1 shim raw() error: ${msg}\nQuery: ${this._query}`);
     }
   }
 }
@@ -191,12 +195,13 @@ class LocalD1Database implements D1Database {
     try {
       db.exec(query);
       return { count: 1, duration: 0 };
-    } catch (e: any) {
-      throw new Error(`D1 shim exec() error: ${e.message}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(`D1 shim exec() error: ${msg}`);
     }
   }
 
-  withSession(_bookmark?: string | "first-unconstrained"): D1Database {
+  withSession(): D1Database {
     return this;
   }
 }
