@@ -268,6 +268,9 @@ export async function updateUserProfile(
     name: string;
     bio: string;
     theme: string;
+    avatar: string;
+    points: number;
+    level: string;
     font_size: number;
     compact_mode: boolean;
     reduce_animations: boolean;

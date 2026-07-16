@@ -162,6 +162,14 @@ export function computeStreak(history: MoodLog[]): number {
   return streak;
 }
 
+export function getLevelForPoints(points: number): string {
+  if (points >= 1500) return "Luminary";
+  if (points >= 800) return "Sage";
+  if (points >= 300) return "Explorer";
+  if (points >= 100) return "Adept";
+  return "Beginner";
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile>({
     name: "Guest",
@@ -169,6 +177,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     bio: "On a gentle journey toward calmer days.",
     points: 0,
     level: "Novice",
+    avatar: "",
   });
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -200,7 +209,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           bio: user.bio || "On a gentle journey toward calmer days.",
           points: user.points || 0,
           level: user.level || "Novice",
-          avatar: user.theme || "", // Using theme column as avatar storage or customize
+          avatar: user.avatar || "",
         });
 
         // Set Settings
@@ -325,7 +334,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string): Promise<AuthResult> => {
     const res = await loginServerFn({ data: { email, password } });
     if (res.success) {
-      document.cookie = `session=${res.user?.id}; Path=/; max-age=2592000; SameSite=Lax`;
+      document.cookie = `session_active=true; Path=/; max-age=2592000; SameSite=Lax`;
       await syncDatabase();
       return { success: true };
     }
@@ -335,7 +344,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const signup = async (name: string, email: string, password: string): Promise<AuthResult> => {
     const res = await signupServerFn({ data: { name, email, password } });
     if (res.success) {
-      document.cookie = `session=${res.user?.id}; Path=/; max-age=2592000; SameSite=Lax`;
+      document.cookie = `session_active=true; Path=/; max-age=2592000; SameSite=Lax`;
       await syncDatabase();
       return { success: true };
     }
@@ -344,19 +353,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await logoutServerFn();
-    document.cookie = "session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    document.cookie = "session_active=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
     if (typeof window !== "undefined") {
       window.location.href = "/signin";
     }
   };
 
   const updateProfile = async (profile: Partial<UserProfile>) => {
-    setUserProfile((prev) => ({ ...prev, ...profile }));
+    const updatedProfile = { ...profile };
+    if (profile.points !== undefined) {
+      updatedProfile.level = getLevelForPoints(profile.points);
+    }
+    setUserProfile((prev) => ({ ...prev, ...updatedProfile }));
     await updateUserProfileServerFn({
       data: {
-        name: profile.name,
-        bio: profile.bio,
-        theme: profile.avatar, // Store avatar in theme column for now
+        name: updatedProfile.name,
+        bio: updatedProfile.bio,
+        avatar: updatedProfile.avatar,
+        points: updatedProfile.points,
+        level: updatedProfile.level,
       },
     });
   };

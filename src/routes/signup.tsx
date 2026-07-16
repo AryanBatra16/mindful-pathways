@@ -7,7 +7,7 @@ export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign Up — Mind2Care" }] }),
   beforeLoad: () => {
     if (typeof window !== "undefined") {
-      const hasSession = document.cookie.includes("session=");
+      const hasSession = document.cookie.includes("session_active=true");
       if (hasSession) {
         throw redirect({ to: "/dashboard" });
       }

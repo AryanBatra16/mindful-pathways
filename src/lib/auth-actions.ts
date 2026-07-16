@@ -18,6 +18,7 @@ export interface AuthUser {
   points?: number | null;
   level?: string | null;
   theme?: string | null;
+  avatar?: string | null;
   font_size?: number | null;
   compact_mode?: boolean | null;
   reduce_animations?: boolean | null;
@@ -149,6 +150,7 @@ export async function signInUser(
     points: user.points,
     level: user.level,
     theme: user.theme,
+    avatar: user.avatar,
     font_size: user.font_size,
     compact_mode: user.compact_mode,
     reduce_animations: user.reduce_animations,
@@ -222,6 +224,7 @@ export async function getCurrentUser(
     points: user.points,
     level: user.level,
     theme: user.theme,
+    avatar: user.avatar,
     font_size: user.font_size,
     compact_mode: user.compact_mode,
     reduce_animations: user.reduce_animations,

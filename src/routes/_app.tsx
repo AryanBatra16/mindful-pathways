@@ -5,7 +5,7 @@ export const Route = createFileRoute("/_app")({
   beforeLoad: () => {
     // Inspect session cookie or active state in browser/server context
     if (typeof window !== "undefined") {
-      const hasSession = document.cookie.includes("session=");
+      const hasSession = document.cookie.includes("session_active=true");
       if (!hasSession) {
         throw redirect({ to: "/signin" });
       }

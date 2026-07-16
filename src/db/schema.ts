@@ -12,6 +12,7 @@ export const users = sqliteTable(
     points: integer("points").default(0),
     level: text("level").default("Beginner"),
     theme: text("theme").default("light"),
+    avatar: text("avatar"),
     font_size: integer("font_size").default(16),
     compact_mode: integer("compact_mode", { mode: "boolean" }).default(false),
     reduce_animations: integer("reduce_animations", { mode: "boolean" }).default(false),
