@@ -62,7 +62,7 @@ function Tasks() {
         accent="green"
       />
 
-      <div className="flex justify-start">
+      <div className="flex justify-end">
         <button
           onClick={() => setOpen(true)}
           className="px-5 py-2.5 rounded-2xl gradient-primary text-white font-semibold shadow-glow hover:scale-105 transition-transform flex items-center gap-2 cursor-pointer"
