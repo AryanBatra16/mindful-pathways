@@ -13,10 +13,13 @@ export const Route = createFileRoute("/_app/dashboard")({
 });
 
 function Dashboard() {
-  const { userProfile, moodHistory, challenges, logMood } = useApp();
+  const { userProfile, moodHistory, challenges, logMood, computeChallengeProgress } = useApp();
 
   const todayQuote = quotes[0];
   const activeChallenge = challenges.find((c) => c.status === "active") || challenges[0];
+  const activeChallengeProgress = activeChallenge
+    ? (activeChallenge.status === "completed" ? 100 : computeChallengeProgress(activeChallenge))
+    : 0;
 
   // Streak — count of consecutive distinct calendar days
   const streak = computeStreak(moodHistory);
@@ -161,10 +164,10 @@ function Dashboard() {
                 <p className="text-xs text-muted-foreground">{activeChallenge.desc}</p>
               </div>
             </div>
-            <span className="text-sm font-semibold">{activeChallenge.progress}%</span>
+            <span className="text-sm font-semibold">{activeChallengeProgress}%</span>
           </div>
           <div className="h-3 rounded-full bg-muted overflow-hidden">
-            <motion.div initial={{ width: 0 }} animate={{ width: `${activeChallenge.progress}%` }} transition={{ duration: 1, delay: 0.3 }} className="h-full gradient-coral-pink" />
+            <motion.div initial={{ width: 0 }} animate={{ width: `${activeChallengeProgress}%` }} transition={{ duration: 1, delay: 0.3 }} className="h-full gradient-coral-pink" />
           </div>
         </motion.div>
       )}
