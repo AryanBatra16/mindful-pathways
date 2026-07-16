@@ -5,6 +5,7 @@ import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianG
 import { PageHeader } from "@/components/PageHeader";
 import { quotes, moods } from "@/lib/mock-data";
 import { useApp, computeStreak, toISODate } from "@/lib/state";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Mind2Care" }] }),
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/_app/dashboard")({
 });
 
 function Dashboard() {
-  const { userProfile, moodHistory, challenges } = useApp();
+  const { userProfile, moodHistory, challenges, logMood } = useApp();
 
   const todayQuote = quotes[0];
   const activeChallenge = challenges.find((c) => c.status === "active") || challenges[0];
@@ -168,15 +169,26 @@ function Dashboard() {
         </motion.div>
       )}
 
-      {/* Recent moods */}
+      {/* Quick Mood Check-in / Mood Palette */}
       <div className="glass rounded-3xl p-6 shadow-card">
-        <h3 className="font-semibold mb-4">Mood Palette</h3>
-        <div className="flex gap-3 overflow-x-auto scrollbar-thin pb-2">
+        <div className="mb-4">
+          <h3 className="font-semibold text-lg animate-pulse inline-flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-primary" /> Quick Mood Check-in</h3>
+          <p className="text-xs text-muted-foreground">Tap any mood to instantly log how you are feeling right now.</p>
+        </div>
+        <div className="grid grid-cols-5 gap-3 w-full">
           {moods.map((m) => (
-            <div key={m.label} className="shrink-0 flex flex-col items-center gap-1 px-4 py-3 rounded-2xl glass min-w-[88px]" style={{ background: `var(--${m.color})`, opacity: 0.6 }}>
-              <span className="text-2xl">{m.emoji}</span>
-              <span className="text-xs font-medium" style={{ color: `var(--${m.color}-foreground)` }}>{m.label}</span>
-            </div>
+            <button
+              key={m.label}
+              onClick={() => {
+                logMood(m, 50, [], "Quick check-in from dashboard", "quick");
+                toast.success(`Logged ${m.label} check-in! Keep breathing 🌸`);
+              }}
+              className="flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-2xl transition-all cursor-pointer hover:scale-105 hover:shadow-glow shadow-soft border border-transparent hover:border-white/10"
+              style={{ background: `var(--${m.color})` }}
+            >
+              <span className="text-3xl md:text-4xl">{m.emoji}</span>
+              <span className="text-xs font-semibold" style={{ color: `var(--${m.color}-foreground)` }}>{m.label}</span>
+            </button>
           ))}
         </div>
       </div>
