@@ -66,7 +66,92 @@ export async function deleteMoodLog(db: DbType, userId: string, moodId: string) 
    2. TASK MANAGEMENT ACTIONS
    ========================================================================= */
 
+export async function ensureDefaultTasks(db: DbType, userId: string) {
+  // 1. Daily tasks
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfTodaySeconds = Math.floor(startOfToday.getTime() / 1000);
+
+  const existingTodayTasks = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.user_id, userId),
+        sql`${tasks.created_at} >= ${startOfTodaySeconds}`
+      )
+    )
+    .all();
+
+  const defaultTasks = [
+    { title: "Morning meditation", priority: "high" },
+    { title: "Journal entry", priority: "medium" },
+    { title: "Drink 8 glasses of water", priority: "low" },
+  ];
+
+  for (const defTask of defaultTasks) {
+    const exists = existingTodayTasks.some(
+      (t) => t.title.toLowerCase() === defTask.title.toLowerCase()
+    );
+    if (!exists) {
+      const id = `task_${crypto.randomUUID()}`;
+      await db.insert(tasks).values({
+        id,
+        user_id: userId,
+        title: defTask.title,
+        priority: defTask.priority,
+        status: "today",
+        due: "Today",
+      });
+    }
+  }
+
+  // 2. Weekly tasks
+  const startOfWeek = new Date();
+  const day = startOfWeek.getDay();
+  const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+  startOfWeek.setDate(diff);
+  startOfWeek.setHours(0, 0, 0, 0);
+  const startOfWeekSeconds = Math.floor(startOfWeek.getTime() / 1000);
+
+  const existingWeekTasks = await db
+    .select()
+    .from(tasks)
+    .where(
+      and(
+        eq(tasks.user_id, userId),
+        sql`${tasks.created_at} >= ${startOfWeekSeconds}`
+      )
+    )
+    .all();
+
+  const defaultWeeklyTasks = [
+    { title: "Call a friend or family member", priority: "medium" },
+    { title: "Clean my workspace", priority: "low" },
+    { title: "Review weekly achievements", priority: "high" },
+  ];
+
+  for (const defTask of defaultWeeklyTasks) {
+    const exists = existingWeekTasks.some(
+      (t) => t.title.toLowerCase() === defTask.title.toLowerCase()
+    );
+    if (!exists) {
+      const id = `task_${crypto.randomUUID()}`;
+      await db.insert(tasks).values({
+        id,
+        user_id: userId,
+        title: defTask.title,
+        priority: defTask.priority,
+        status: "week",
+        due: "This Week",
+      });
+    }
+  }
+}
+
 export async function getTasks(db: DbType, userId: string) {
+  await ensureDefaultTasks(db, userId);
+
   return await db
     .select()
     .from(tasks)
