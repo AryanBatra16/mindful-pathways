@@ -279,12 +279,9 @@ Do not provide professional medical advice, but offer gentle coping strategies.`
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Gemini API Error details:", response.status, errorText);
-        let userFriendlyMsg = "I'm having trouble connecting right now. Please verify your Gemini API key.";
-        if (response.status === 400 || response.status === 403) {
-          userFriendlyMsg = "It looks like your Gemini API Key is invalid or has expired. Please check your key in Google AI Studio and update the .env file.";
-        }
-        await saveChatbotMessage(db, user.id, { role: "assistant", text: userFriendlyMsg });
-        return userFriendlyMsg;
+        const errorMsg = `Gemini API Error (status ${response.status}): ${errorText}`;
+        await saveChatbotMessage(db, user.id, { role: "assistant", text: errorMsg });
+        return errorMsg;
       }
 
       const result = (await response.json()) as any;
