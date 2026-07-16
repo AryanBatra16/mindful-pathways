@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, LogOut, Trophy, Heart, CalendarHeart, Users, CheckCircle, Flame } from "lucide-react";
-import { useState } from "react";
+import { Bell, LogOut, Trophy, Heart, CalendarHeart, Users, CheckCircle, Flame, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/lib/state";
 
 interface PageHeaderProps {
@@ -12,15 +12,55 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProps) {
   const { userProfile, moodHistory, challenges, logout } = useApp();
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifRead, setNotifRead] = useState(false);
+  
+  const [missedTasksNotifs, setMissedTasksNotifs] = useState<{ id: string; title: string; date: string }[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("missed_daily_tasks");
+        return stored ? JSON.parse(stored) : [];
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [notifRead, setNotifRead] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("missed_daily_tasks");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          return !(Array.isArray(parsed) && parsed.length > 0);
+        } catch (e) {}
+      }
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (notifOpen) {
+      setNotifRead(true);
+      try {
+        const stored = localStorage.getItem("missed_daily_tasks");
+        setMissedTasksNotifs(stored ? JSON.parse(stored) : []);
+      } catch (e) {}
+    }
+  }, [notifOpen]);
 
   // Build dynamic notifications
   const notifications = [
+    ...missedTasksNotifs.map((t) => ({
+      id: `missed-${t.id}`,
+      icon: AlertCircle,
+      color: "coral" as const,
+      title: "Intentions missed",
+      desc: `"${t.title}" wasn't completed in time.`,
+      time: t.date || "yesterday",
+    })),
     ...(moodHistory.length > 0
       ? [{
           id: "mood-latest",
           icon: Flame,
-          color: "coral",
+          color: "coral" as const,
           title: "Mood logged!",
           desc: `Last entry: ${moodHistory[0].mood.label} ${moodHistory[0].mood.emoji}`,
           time: moodHistory[0].time || "recently",
@@ -28,7 +68,7 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
       : [{
           id: "mood-reminder",
           icon: CalendarHeart,
-          color: "purple",
+          color: "purple" as const,
           title: "Log your mood",
           desc: "You haven't logged today yet. How are you feeling?",
           time: "now",
@@ -39,7 +79,7 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
       .map((c) => ({
         id: `challenge-${c.id}`,
         icon: Trophy,
-        color: c.color,
+        color: c.color as any,
         title: "Challenge almost done!",
         desc: `"${c.title}" is at ${c.progress}% — keep going!`,
         time: "today",
@@ -47,7 +87,7 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
     {
       id: "quote-daily",
       icon: Heart,
-      color: "pink",
+      color: "pink" as const,
       title: "Daily quote ready",
       desc: "Your motivational quote for the day is waiting.",
       time: "today",
@@ -55,7 +95,7 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
     {
       id: "community-activity",
       icon: Users as typeof Flame,
-      color: "turquoise",
+      color: "turquoise" as const,
       title: "Community is buzzing",
       desc: "New posts in your support groups today.",
       time: "1h ago",
@@ -64,7 +104,6 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
 
   const handleOpenNotif = () => {
     setNotifOpen((prev) => !prev);
-    if (!notifOpen) setNotifRead(true);
   };
 
   return (
@@ -115,7 +154,11 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
                     <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                       <span className="font-semibold text-sm">Notifications</span>
                       <button
-                        onClick={() => setNotifRead(true)}
+                        onClick={() => {
+                          setNotifRead(true);
+                          localStorage.removeItem("missed_daily_tasks");
+                          setMissedTasksNotifs([]);
+                        }}
                         className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                       >
                         Mark all read

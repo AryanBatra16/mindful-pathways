@@ -235,8 +235,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         // Fetch Tasks
         const dbTasks = await getTasksServerFn();
+        
+        // start of today in unix timestamp seconds
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000;
+        
+        // Filter daily tasks that were created before today and are not completed
+        const expiredDailyTasks = dbTasks.filter((t: any) => {
+          const isDaily = t.status === "today" || (t.due && t.due.toLowerCase() === "today");
+          const isNotCompleted = t.status !== "completed";
+          const isBeforeToday = t.created_at && t.created_at < startOfToday;
+          return isDaily && isNotCompleted && isBeforeToday;
+        });
+
+        if (expiredDailyTasks.length > 0) {
+          // Log missed tasks to localStorage
+          const stored = localStorage.getItem("missed_daily_tasks");
+          let missedList: any[] = [];
+          if (stored) {
+            try {
+              missedList = JSON.parse(stored);
+            } catch (e) {}
+          }
+          
+          for (const t of expiredDailyTasks) {
+            // Check if we already logged this task id
+            if (!missedList.some((m: any) => m.id === t.id)) {
+              missedList.push({
+                id: t.id,
+                title: t.title,
+                date: new Date(t.created_at * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              });
+            }
+            // Delete from database
+            await deleteTaskServerFn({ data: { taskId: String(t.id) } });
+          }
+          localStorage.setItem("missed_daily_tasks", JSON.stringify(missedList));
+          
+          // Reset the session popup flag so it will pop up again on this new login!
+          sessionStorage.removeItem("missed_tasks_acknowledged");
+        }
+
+        // Filter out expired tasks from frontend list
+        const remainingTasks = dbTasks.filter((t: any) => {
+          return !expiredDailyTasks.some((et: any) => et.id === t.id);
+        });
+
         setTasks(
-          dbTasks.map((t: any) => ({
+          remainingTasks.map((t: any) => ({
             id: t.id,
             title: t.title,
             priority: (t.priority || "medium") as "high" | "medium" | "low",

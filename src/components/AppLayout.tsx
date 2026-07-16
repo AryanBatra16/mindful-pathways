@@ -1,7 +1,7 @@
 import { Link, useLocation, Outlet } from "@tanstack/react-router";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, MessageCircleHeart, CalendarHeart, Quote, Trophy, ListTodo, Users, BarChart3, Sparkles, Settings, Menu, X, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BackgroundBlobs } from "./BackgroundBlobs";
 import { cn } from "@/lib/utils";
 import { useApp } from "@/lib/state";
@@ -28,7 +28,34 @@ export function AppLayout() {
     }
     return false;
   });
-  const { userProfile, logout } = useApp();
+  const { userProfile, logout, tasks } = useApp();
+
+  const [showMissedModal, setShowMissedModal] = useState(false);
+  const [missedTasks, setMissedTasks] = useState<string[]>([]);
+
+  useEffect(() => {
+    // Check if there are missed daily tasks in localStorage that need to be shown
+    const stored = localStorage.getItem("missed_daily_tasks");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const acked = sessionStorage.getItem("missed_tasks_acknowledged") === "true";
+          if (!acked) {
+            setMissedTasks(parsed.map((item: any) => item.title || item));
+            setShowMissedModal(true);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse missed tasks:", e);
+      }
+    }
+  }, [tasks]); // trigger when tasks list changes/syncs from DB
+
+  const handleDismissMissedModal = () => {
+    setShowMissedModal(false);
+    sessionStorage.setItem("missed_tasks_acknowledged", "true");
+  };
 
   const avatarValue = userProfile.avatar || "";
   const isPhoto = avatarValue.startsWith("data:");
@@ -185,6 +212,52 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Missed Tasks Pop-up Modal */}
+      <AnimatePresence>
+        {showMissedModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="glass max-w-md w-full rounded-3xl p-6 shadow-glow border border-border text-center relative overflow-hidden"
+            >
+              <div className="absolute -top-20 -left-20 h-40 w-40 rounded-full opacity-20 bg-coral blur-3xl" />
+              <div className="absolute -bottom-20 -right-20 h-40 w-40 rounded-full opacity-20 bg-pink blur-3xl" />
+              
+              <div className="relative">
+                <div className="mx-auto h-12 w-12 rounded-2xl gradient-coral-pink flex items-center justify-center mb-4">
+                  <CalendarHeart className="h-6 w-6 text-white" />
+                </div>
+                <h3 className="text-xl font-bold text-gradient mb-2">A Gentle Fresh Start</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  We noticed some of yesterday's daily intentions weren't completed. That is completely okay! Every morning brings a fresh start. 🌿
+                </p>
+
+                <div className="glass rounded-2xl p-4 mb-6 text-left border border-border/50 max-h-36 overflow-y-auto scrollbar-thin">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Unfinished intentions:</div>
+                  <ul className="space-y-2">
+                    {missedTasks.map((t, idx) => (
+                      <li key={idx} className="text-sm flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-coral shrink-0" />
+                        <span className="truncate">{t}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <button
+                  onClick={handleDismissMissedModal}
+                  className="w-full py-3 rounded-2xl gradient-primary text-white font-semibold shadow-glow hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+                >
+                  Got it, Fresh Start! ✨
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
