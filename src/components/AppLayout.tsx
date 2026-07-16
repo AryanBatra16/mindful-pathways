@@ -1,6 +1,6 @@
 import { Link, useLocation, Outlet } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { LayoutDashboard, MessageCircleHeart, CalendarHeart, Quote, Trophy, ListTodo, Users, BarChart3, Sparkles, Settings, Menu, X, LogOut, ChevronLeft } from "lucide-react";
+import { LayoutDashboard, MessageCircleHeart, CalendarHeart, Quote, Trophy, ListTodo, Users, BarChart3, Sparkles, Settings, Menu, X, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
 import { BackgroundBlobs } from "./BackgroundBlobs";
 import { cn } from "@/lib/utils";
@@ -60,7 +60,7 @@ export function AppLayout() {
               className="p-2 rounded-xl hover:bg-muted cursor-pointer flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
               title="Expand Menu"
             >
-              <Menu className="h-5 w-5" />
+              <PanelLeftOpen className="h-5 w-5" />
             </button>
           ) : (
             <>
@@ -82,7 +82,7 @@ export function AppLayout() {
                   className="hidden lg:flex p-1.5 rounded-lg hover:bg-muted cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                   title="Collapse Menu"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <PanelLeftClose className="h-4 w-4" />
                 </button>
               </div>
             </>
