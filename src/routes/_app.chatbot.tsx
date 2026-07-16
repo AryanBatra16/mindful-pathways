@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Sparkles, Phone, Heart, Smile } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { useApp } from "@/lib/state";
-import { moods } from "@/lib/mock-data";
 import { toast } from "sonner";
+import {
+  getChatbotMessagesServerFn,
+  getGeminiResponseServerFn,
+  saveChatbotMessageServerFn,
+} from "@/lib/server-functions";
 
 export const Route = createFileRoute("/_app/chatbot")({
   head: () => ({ meta: [{ title: "AI Companion — Mind2Care" }] }),
@@ -15,7 +19,11 @@ export const Route = createFileRoute("/_app/chatbot")({
 type Msg = { role: "user" | "assistant"; text: string; time: string };
 
 const initial = (name: string): Msg[] => [
-  { role: "assistant", text: `Hi ${name}, I'm so glad you stopped by 🌸 How are you feeling today?`, time: "9:02" },
+  {
+    role: "assistant",
+    text: `Hi ${name}, I'm so glad you stopped by 🌸 How are you feeling today?`,
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  },
 ];
 
 const quickReplies = ["I feel great", "A bit anxious", "Tired", "Need to vent", "Just checking in"];
@@ -33,38 +41,59 @@ function Chatbot() {
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
 
-  const getAIResponse = (userText: string): string => {
-    const text = userText.toLowerCase();
-    if (text.includes("anxious") || text.includes("anxiety") || text.includes("panic") || text.includes("scared")) {
-      return "I hear you. When anxiety hits, it can feel really overwhelming. Let's try a slow box breath together: inhale for 4 seconds, hold for 4, exhale for 4, hold for 4. You are safe here 💛";
-    }
-    if (text.includes("sad") || text.includes("depressed") || text.includes("cry") || text.includes("low") || text.includes("hurt")) {
-      return "It's completely okay to feel sad or low. You don't have to force yourself to be positive. I'm right here with you, and we can just sit with this feeling for a while 🌸";
-    }
-    if (text.includes("happy") || text.includes("great") || text.includes("good") || text.includes("win") || text.includes("excited")) {
-      return "That is wonderful to hear! 🌟 Sharing moments of joy is so important. What made today feel a bit brighter?";
-    }
-    if (text.includes("tired") || text.includes("exhausted") || text.includes("sleep") || text.includes("fatigue")) {
-      return "It sounds like your body and mind are asking for rest. Give yourself permission to pause and recharge. Rest is productive self-care 💤";
-    }
-    return "Thank you for sharing that with me. How does that make you feel inside, and what is one small thing that might bring you some comfort right now?";
-  };
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const dbMsgs = await getChatbotMessagesServerFn();
+        if (dbMsgs.length > 0) {
+          setMessages(
+            dbMsgs.map((m) => ({
+              role: m.role as "user" | "assistant",
+              text: m.text,
+              time: m.created_at
+                ? new Date(m.created_at * 1000).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            }))
+          );
+        } else {
+          // Store default initial greeting to DB
+          const greetingText = `Hi ${userProfile.name.split(" ")[0]}, I'm so glad you stopped by 🌸 How are you feeling today?`;
+          await saveChatbotMessageServerFn({ data: { role: "assistant", text: greetingText } });
+          setMessages(initial(userProfile.name.split(" ")[0]));
+        }
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      }
+    };
+    loadHistory();
+  }, [userProfile.name]);
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     if (!text.trim()) return;
     const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     setMessages((m) => [...m, { role: "user", text, time }]);
     setInput("");
     setTyping(true);
 
-    setTimeout(() => {
+    try {
+      const response = await getGeminiResponseServerFn({ data: { userMessage: text } });
+      setMessages((m) => [
+        ...m,
+        {
+          role: "assistant",
+          text: response,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+    } catch (err) {
+      console.error("Failed to get AI response:", err);
+      toast.error("Companion is offline. Please try again.");
+    } finally {
       setTyping(false);
-      setMessages((m) => [...m, {
-        role: "assistant",
-        text: getAIResponse(text),
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      }]);
-    }, 1000);
+    }
   };
 
   const handleMoodChipClick = (chip: typeof moodChips[0]) => {
