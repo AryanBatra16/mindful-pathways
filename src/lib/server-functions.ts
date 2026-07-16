@@ -265,7 +265,7 @@ Do not provide professional medical advice, but offer gentle coping strategies.`
     // 5. Query Gemini API with error safety
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -279,9 +279,14 @@ Do not provide professional medical advice, but offer gentle coping strategies.`
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Gemini API Error details:", response.status, errorText);
-        const errorMsg = `Gemini API Error (status ${response.status}): ${errorText}`;
-        await saveChatbotMessage(db, user.id, { role: "assistant", text: errorMsg });
-        return errorMsg;
+        let userFriendlyMsg = "I'm having trouble connecting right now. Please verify your Gemini API key.";
+        if (response.status === 400 || response.status === 403) {
+          userFriendlyMsg = "It looks like your Gemini API Key is invalid or has expired. Please check your key in Google AI Studio and update the .env file.";
+        } else if (response.status === 404) {
+          userFriendlyMsg = `The selected model was not found (status 404). Details: ${errorText}`;
+        }
+        await saveChatbotMessage(db, user.id, { role: "assistant", text: userFriendlyMsg });
+        return userFriendlyMsg;
       }
 
       const result = (await response.json()) as any;
