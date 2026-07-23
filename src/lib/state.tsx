@@ -30,6 +30,7 @@ export interface Task {
   status: "today" | "week" | "later" | "completed";
   due: string;
   challenge: string | null;
+  starred?: boolean;
 }
 
 export interface Mood {
@@ -119,9 +120,10 @@ interface AppContextType {
   loginAsDemo: () => void;
   updateProfile: (profile: Partial<UserProfile>) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
-  addTask: (title: string, priority: "high" | "medium" | "low", due: string, challenge: string | null) => void;
+  addTask: (title: string, priority: "high" | "medium" | "low", due: string, challenge: string | null, starred?: boolean) => void;
   deleteTask: (id: number | string) => void;
   completeTask: (id: number | string) => void;
+  toggleStarTask: (id: number | string) => void;
   logMood: (mood: Mood, intensity: number, tags: string[], note: string, type?: "quick" | "daily") => void;
   toggleChallenge: (id: number) => void;
   addPost: (content: string, anon: boolean) => void;
@@ -471,7 +473,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             progress = Math.min(100, Math.round((days.size / req) * 100));
             break;
           }
-          case "mindful_mornings": {
+          case "mindful_mornings":
+          case "mindful_mornings_3": {
             const earlyDays = new Set(
               moodHistory
                 .filter((h) => {
@@ -497,6 +500,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           case "social_spark": {
             const myPosts = communityPosts.filter((p) => !p.anon && p.author === userProfile.name).length;
             progress = Math.min(100, Math.round((myPosts / req) * 100));
+            break;
+          }
+          case "task_master": {
+            const completed = tasks.filter((t) => t.status === "completed").length;
+            progress = Math.min(100, Math.round((completed / req) * 100));
+            break;
+          }
+          case "evening_log": {
+            const nightDays = new Set(
+              moodHistory
+                .filter((h) => {
+                  const hour = parseInt(h.time.split(":")[0]);
+                  const isPM = h.time.toLowerCase().includes("pm");
+                  return isPM && (hour >= 8 && hour !== 12);
+                })
+                .map((h) => h.date)
+            );
+            progress = Math.min(100, Math.round((nightDays.size / req) * 100));
+            break;
+          }
+          case "community_supporter": {
+            const liked = communityPosts.filter((p) => p.liked).length;
+            progress = Math.min(100, Math.round((liked / req) * 100));
             break;
           }
           default:
@@ -604,9 +630,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const addTask = async (title: string, priority: "high" | "medium" | "low", due: string, challenge: string | null) => {
+  const addTask = async (title: string, priority: "high" | "medium" | "low", due: string, challenge: string | null, starred = false) => {
     const tempId = `temp_${Date.now()}`;
-    const newTask: Task = { id: tempId, title, priority, status: "today", due: due || "Today", challenge };
+    const newTask: Task = { id: tempId, title, priority, status: "today", due: due || "Today", challenge, starred };
     setTasks((prev) => [newTask, ...prev]);
     if (isDemoActive()) return;
 
@@ -616,6 +642,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (res) {
       setTasks((prev) => prev.map((t) => (t.id === tempId ? { ...t, id: res.id } : t)));
     }
+  };
+
+  const toggleStarTask = (id: number | string) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, starred: !t.starred } : t))
+    );
   };
 
   const deleteTask = async (id: number | string) => {
@@ -694,7 +726,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         );
         return Math.min(100, Math.round((daysWithNote.size / req) * 100));
       }
-      case "mindful_mornings": {
+      case "mindful_mornings":
+      case "mindful_mornings_3": {
         const earlyDays = new Set(
           moodHistory
             .filter((h) => {
@@ -716,6 +749,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       case "social_spark": {
         const myPosts = communityPosts.filter((p) => !p.anon && p.author === userProfile.name).length;
         return Math.min(100, Math.round((myPosts / req) * 100));
+      }
+      case "task_master": {
+        const completed = tasks.filter((t) => t.status === "completed").length;
+        return Math.min(100, Math.round((completed / req) * 100));
+      }
+      case "evening_log": {
+        const nightDays = new Set(
+          moodHistory
+            .filter((h) => {
+              const hour = parseInt(h.time.split(":")[0]);
+              const isPM = h.time.toLowerCase().includes("pm");
+              return isPM && (hour >= 8 && hour !== 12);
+            })
+            .map((h) => h.date)
+        );
+        return Math.min(100, Math.round((nightDays.size / req) * 100));
+      }
+      case "community_supporter": {
+        const liked = communityPosts.filter((p) => p.liked).length;
+        return Math.min(100, Math.round((liked / req) * 100));
       }
       default:
         return challenge.progress;
@@ -834,6 +887,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addTask,
         deleteTask,
         completeTask,
+        toggleStarTask,
         logMood,
         toggleChallenge,
         addPost,

@@ -35,25 +35,23 @@ export const quotes = [
 export const challenges = [
   { id: 1, title: "7-Day Gratitude Journal", desc: "Log your daily mood with a note for 7 different days", points: 70, progress: 57, status: "active", category: "gratitude", color: "coral", verifyType: "gratitude_journal", requirement: "Log daily mood with a note on 7 different days", requirementCount: 7 },
   { id: 2, title: "Mindful Mornings", desc: "Log your mood before 9 AM on 5 different days", points: 50, progress: 40, status: "active", category: "mindfulness", color: "purple", verifyType: "mindful_mornings", requirement: "Log mood before 9 AM on 5 different days", requirementCount: 5 },
-  { id: 3, title: "Digital Detox Sunday", desc: "Spend a Sunday off all screens", points: 30, progress: 0, status: "available", category: "rest", color: "blue", verifyType: "digital_detox", requirement: "Manually mark complete after your detox day", requirementCount: 1 },
-  { id: 4, title: "Hydration Hero", desc: "Drink 8 glasses of water for 7 days", points: 40, progress: 0, status: "available", category: "wellness", color: "turquoise", verifyType: "hydration_hero", requirement: "Manually track your water intake for 7 days", requirementCount: 7 },
-  { id: 5, title: "Move Every Day", desc: "20 minutes of movement, any kind", points: 60, progress: 0, status: "available", category: "wellness", color: "green", verifyType: "move_every_day", requirement: "Log movement sessions via tasks for 7 days", requirementCount: 7 },
-  { id: 6, title: "Kindness Streak", desc: "Do one act of kindness per day", points: 50, progress: 100, status: "completed", category: "social", color: "pink", verifyType: "kindness_streak", requirement: "Completed!", requirementCount: 7 },
-  { id: 7, title: "5-Day Mood Streak", desc: "Log your mood on 5 consecutive days", points: 60, progress: 100, status: "completed", category: "mindfulness", color: "turquoise", verifyType: "mood_streak_5", requirement: "Log mood on at least 5 different calendar days", requirementCount: 5 },
-  { id: 8, title: "Reflection Writer", desc: "Add a thoughtful note to 3 of your mood entries", points: 40, progress: 75, status: "active", category: "growth", color: "blue", verifyType: "reflection_writer", requirement: "Add meaningful notes to 3 mood entries", requirementCount: 3 },
-  { id: 9, title: "Early Bird", desc: "Log your mood before 9 AM on 3 different days", points: 35, progress: 33, status: "active", category: "wellness", color: "green", verifyType: "mindful_mornings", requirement: "Log mood before 9 AM on 3 days", requirementCount: 3 },
-  { id: 10, title: "Social Spark", desc: "Share 3 posts in the community", points: 45, progress: 66, status: "active", category: "social", color: "coral", verifyType: "social_spark", requirement: "Post in the community 3 times", requirementCount: 3 },
+  { id: 3, title: "Task Master", desc: "Complete 5 mindful tasks on your task board", points: 50, progress: 0, status: "available", category: "wellness", color: "turquoise", verifyType: "task_master", requirement: "Complete 5 tasks on your task board", requirementCount: 5 },
+  { id: 4, title: "Night Owl Reflection", desc: "Log your mood after 8 PM on 3 different days", points: 40, progress: 0, status: "available", category: "mindfulness", color: "blue", verifyType: "evening_log", requirement: "Log mood after 8 PM on 3 different days", requirementCount: 3 },
+  { id: 5, title: "Community Supporter", desc: "Support others by liking 3 community posts", points: 35, progress: 0, status: "available", category: "social", color: "pink", verifyType: "community_supporter", requirement: "Like 3 posts in the community section", requirementCount: 3 },
+  { id: 6, title: "5-Day Mood Streak", desc: "Log your mood on 5 consecutive days", points: 60, progress: 100, status: "completed", category: "mindfulness", color: "turquoise", verifyType: "mood_streak_5", requirement: "Log mood on at least 5 consecutive days", requirementCount: 5 },
+  { id: 7, title: "Reflection Writer", desc: "Add a thoughtful note to 3 of your mood entries", points: 40, progress: 75, status: "active", category: "growth", color: "blue", verifyType: "reflection_writer", requirement: "Add meaningful notes to 3 mood entries", requirementCount: 3 },
+  { id: 8, title: "Early Bird", desc: "Log your mood before 9 AM on 3 different days", points: 35, progress: 33, status: "active", category: "wellness", color: "green", verifyType: "mindful_mornings_3", requirement: "Log mood before 9 AM on 3 days", requirementCount: 3 },
+  { id: 9, title: "Social Spark", desc: "Share 3 posts in the community", points: 45, progress: 66, status: "active", category: "social", color: "coral", verifyType: "social_spark", requirement: "Post in the community 3 times", requirementCount: 3 },
 ];
 
 export const tasks = [
-  { id: 1, title: "Morning meditation", priority: "high", status: "today", due: "Today", challenge: "Mindful Mornings" },
-  { id: 2, title: "Journal entry", priority: "medium", status: "today", due: "Today", challenge: "7-Day Gratitude Journal" },
-  { id: 3, title: "Call a friend", priority: "low", status: "week", due: "This week", challenge: null },
-  { id: 4, title: "Read 20 pages", priority: "medium", status: "week", due: "Wed", challenge: null },
-  { id: 5, title: "Plan weekend hike", priority: "low", status: "later", due: "Next week", challenge: null },
-  { id: 6, title: "Yoga session", priority: "high", status: "completed", due: "Yesterday", challenge: "Move Every Day" },
-  { id: 7, title: "Drink 8 glasses of water", priority: "medium", status: "today", due: "Today", challenge: "Hydration Hero" },
-  { id: 8, title: "Evening gratitude list", priority: "low", status: "today", due: "Today", challenge: "7-Day Gratitude Journal" },
+  { id: 1, title: "Morning meditation", priority: "high", status: "today", due: "Today", challenge: "Mindful Mornings", starred: true },
+  { id: 2, title: "Journal entry", priority: "medium", status: "today", due: "Today", challenge: "7-Day Gratitude Journal", starred: false },
+  { id: 3, title: "Call a friend", priority: "low", status: "week", due: "This week", challenge: null, starred: false },
+  { id: 4, title: "Read 20 pages", priority: "medium", status: "week", due: "Wed", challenge: null, starred: true },
+  { id: 5, title: "Plan weekend hike", priority: "low", status: "later", due: "Next week", challenge: null, starred: false },
+  { id: 6, title: "Yoga session", priority: "high", status: "completed", due: "Yesterday", challenge: null, starred: false },
+  { id: 7, title: "Evening gratitude list", priority: "low", status: "today", due: "Today", challenge: "7-Day Gratitude Journal", starred: true },
 ];
 
 export const communityPosts = [
@@ -186,14 +184,14 @@ function generateDemoMoodHistory() {
 export const DEMO_MOOD_HISTORY = generateDemoMoodHistory();
 
 export const DEMO_TASKS = [
-  { id: "dt1", title: "Morning meditation (10 mins)", priority: "high" as const, status: "today" as const, due: "Today", challenge: "Mindful Mornings" },
-  { id: "dt2", title: "Write gratitude journal entry", priority: "medium" as const, status: "today" as const, due: "Today", challenge: "7-Day Gratitude Journal" },
-  { id: "dt3", title: "Drink 8 glasses of water", priority: "medium" as const, status: "today" as const, due: "Today", challenge: "Hydration Hero" },
-  { id: "dt4", title: "Call a friend or family member", priority: "low" as const, status: "week" as const, due: "This week", challenge: null },
-  { id: "dt5", title: "Read 20 pages of a good book", priority: "medium" as const, status: "week" as const, due: "Wed", challenge: null },
-  { id: "dt6", title: "Plan weekend nature walk", priority: "low" as const, status: "later" as const, due: "Next week", challenge: null },
-  { id: "dt7", title: "Yoga session (30 mins)", priority: "high" as const, status: "completed" as const, due: "Yesterday", challenge: "Move Every Day" },
-  { id: "dt8", title: "Evening wind-down routine", priority: "medium" as const, status: "completed" as const, due: "Yesterday", challenge: null },
+  { id: "dt1", title: "Morning meditation (10 mins)", priority: "high" as const, status: "today" as const, due: "Today", challenge: "Mindful Mornings", starred: true },
+  { id: "dt2", title: "Write gratitude journal entry", priority: "medium" as const, status: "today" as const, due: "Today", challenge: "7-Day Gratitude Journal", starred: true },
+  { id: "dt3", title: "Share a post in community", priority: "medium" as const, status: "today" as const, due: "Today", challenge: "Social Spark", starred: false },
+  { id: "dt4", title: "Call a friend or family member", priority: "low" as const, status: "week" as const, due: "This week", challenge: null, starred: false },
+  { id: "dt5", title: "Read 20 pages of a good book", priority: "medium" as const, status: "week" as const, due: "Wed", challenge: null, starred: true },
+  { id: "dt6", title: "Plan weekend nature walk", priority: "low" as const, status: "later" as const, due: "Next week", challenge: null, starred: false },
+  { id: "dt7", title: "Yoga session (30 mins)", priority: "high" as const, status: "completed" as const, due: "Yesterday", challenge: null, starred: false },
+  { id: "dt8", title: "Evening wind-down routine", priority: "medium" as const, status: "completed" as const, due: "Yesterday", challenge: null, starred: false },
 ];
 
 export const DEMO_COMMUNITY_POSTS = [
@@ -210,14 +208,13 @@ export const DEMO_SAVED_QUOTES = [1, 3, 5, 9];
 export const DEMO_CHALLENGES = [
   { id: 1, title: "7-Day Gratitude Journal", desc: "Log your daily mood with a note for 7 different days", points: 70, progress: 57, status: "active" as const, category: "gratitude", color: "coral", verifyType: "gratitude_journal", requirement: "Log daily mood with a note on 7 different days", requirementCount: 7 },
   { id: 2, title: "Mindful Mornings", desc: "Log your mood before 9 AM on 5 different days", points: 50, progress: 40, status: "active" as const, category: "mindfulness", color: "purple", verifyType: "mindful_mornings", requirement: "Log mood before 9 AM on 5 different days", requirementCount: 5 },
-  { id: 3, title: "Digital Detox Sunday", desc: "Spend a Sunday off all screens", points: 30, progress: 0, status: "available" as const, category: "rest", color: "blue", verifyType: "digital_detox", requirement: "Manually mark complete after your detox day", requirementCount: 1 },
-  { id: 4, title: "Hydration Hero", desc: "Drink 8 glasses of water for 7 days", points: 40, progress: 0, status: "available" as const, category: "wellness", color: "turquoise", verifyType: "hydration_hero", requirement: "Manually track your water intake for 7 days", requirementCount: 7 },
-  { id: 5, title: "Move Every Day", desc: "20 minutes of movement, any kind", points: 60, progress: 0, status: "available" as const, category: "wellness", color: "green", verifyType: "move_every_day", requirement: "Log movement sessions via tasks for 7 days", requirementCount: 7 },
-  { id: 6, title: "Kindness Streak", desc: "Do one act of kindness per day", points: 50, progress: 100, status: "completed" as const, category: "social", color: "pink", verifyType: "kindness_streak", requirement: "Completed!", requirementCount: 7 },
-  { id: 7, title: "5-Day Mood Streak", desc: "Log your mood on 5 consecutive days", points: 60, progress: 100, status: "completed" as const, category: "mindfulness", color: "turquoise", verifyType: "mood_streak_5", requirement: "Log mood on at least 5 different calendar days", requirementCount: 5 },
-  { id: 8, title: "Reflection Writer", desc: "Add a thoughtful note to 3 of your mood entries", points: 40, progress: 75, status: "active" as const, category: "growth", color: "blue", verifyType: "reflection_writer", requirement: "Add meaningful notes to 3 mood entries", requirementCount: 3 },
-  { id: 9, title: "Early Bird", desc: "Log your mood before 9 AM on 3 different days", points: 35, progress: 33, status: "active" as const, category: "wellness", color: "green", verifyType: "mindful_mornings", requirement: "Log mood before 9 AM on 3 days", requirementCount: 3 },
-  { id: 10, title: "Social Spark", desc: "Share 3 posts in the community", points: 45, progress: 66, status: "active" as const, category: "social", color: "coral", verifyType: "social_spark", requirement: "Post in the community 3 times", requirementCount: 3 },
+  { id: 3, title: "Task Master", desc: "Complete 5 mindful tasks on your task board", points: 50, progress: 0, status: "available" as const, category: "wellness", color: "turquoise", verifyType: "task_master", requirement: "Complete 5 tasks on your task board", requirementCount: 5 },
+  { id: 4, title: "Night Owl Reflection", desc: "Log your mood after 8 PM on 3 different days", points: 40, progress: 0, status: "available" as const, category: "mindfulness", color: "blue", verifyType: "evening_log", requirement: "Log mood after 8 PM on 3 different days", requirementCount: 3 },
+  { id: 5, title: "Community Supporter", desc: "Support others by liking 3 community posts", points: 35, progress: 0, status: "available" as const, category: "social", color: "pink", verifyType: "community_supporter", requirement: "Like 3 posts in the community section", requirementCount: 3 },
+  { id: 6, title: "5-Day Mood Streak", desc: "Log your mood on 5 consecutive days", points: 60, progress: 100, status: "completed" as const, category: "mindfulness", color: "turquoise", verifyType: "mood_streak_5", requirement: "Log mood on at least 5 consecutive days", requirementCount: 5 },
+  { id: 7, title: "Reflection Writer", desc: "Add a thoughtful note to 3 of your mood entries", points: 40, progress: 75, status: "active" as const, category: "growth", color: "blue", verifyType: "reflection_writer", requirement: "Add meaningful notes to 3 mood entries", requirementCount: 3 },
+  { id: 8, title: "Early Bird", desc: "Log your mood before 9 AM on 3 different days", points: 35, progress: 33, status: "active" as const, category: "wellness", color: "green", verifyType: "mindful_mornings_3", requirement: "Log mood before 9 AM on 3 days", requirementCount: 3 },
+  { id: 9, title: "Social Spark", desc: "Share 3 posts in the community", points: 45, progress: 66, status: "active" as const, category: "social", color: "coral", verifyType: "social_spark", requirement: "Post in the community 3 times", requirementCount: 3 },
 ];
 
 // Demo chatbot sessions (pre-populated conversations)

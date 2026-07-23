@@ -23,10 +23,28 @@ function niceDate(isoStr: string | undefined): string {
 }
 
 function Growth() {
-  const { userProfile, moodHistory, challenges, communityPosts } = useApp();
+  const { userProfile, moodHistory, challenges, communityPosts, tasks } = useApp();
 
   // The ONE source of truth for streak — same function the dashboard uses
   const streak = computeStreak(moodHistory);
+  const completedChallengesCount = challenges.filter((c) => c.status === "completed").length;
+  const completedTasksCount = tasks.filter((t) => t.status === "completed").length;
+  const moodCount = moodHistory.length;
+
+  // ── Calculate dynamic platform user percentile rank ──────────────────────
+  // Takes into account all user activity: Points, Streak, Mood Logs, Challenges & Tasks
+  const activityScore =
+    userProfile.points * 1.5 +
+    streak * 35 +
+    moodCount * 12 +
+    completedChallengesCount * 60 +
+    completedTasksCount * 15;
+
+  const topPercentile = (() => {
+    if (activityScore <= 0) return 99;
+    const rank = Math.max(1, Math.min(99, Math.round(95 * Math.exp(-activityScore / 550))));
+    return rank;
+  })();
 
   // Dynamically calculate badge status
   const badgesList = [
@@ -134,12 +152,12 @@ function Growth() {
         {[
           { label: "Total Points", value: userProfile.points.toLocaleString(), color: "purple", icon: Sparkles },
           { label: "Badges Earned", value: `${earnedBadgesCount} / 6`, color: "coral", icon: Trophy },
-          { label: "You're in the top", value: "12%", color: "turquoise", icon: TrendingUp },
+          { label: "Platform Rank", value: `Top ${topPercentile}%`, color: "turquoise", icon: TrendingUp },
         ].map((s, i) => {
           const Icon = s.icon;
           return (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }} className="glass rounded-3xl p-6 shadow-card flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl flex items-center justify-center shadow-glow" style={{ background: `var(--${s.color})` }}>
+              <div className="h-14 w-14 rounded-2xl flex items-center justify-center shadow-glow shrink-0" style={{ background: `var(--${s.color})` }}>
                 <Icon className="h-6 w-6" style={{ color: `var(--${s.color}-foreground)` }} />
               </div>
               <div>

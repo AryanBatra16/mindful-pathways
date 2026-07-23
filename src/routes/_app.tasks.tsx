@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { Plus, Check, Trash2, X } from "lucide-react";
+import { Plus, Check, Trash2, X, Star } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { useApp } from "@/lib/state";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ const columns = [
 const priorityColor: Record<string, string> = { high: "coral", medium: "purple", low: "turquoise" };
 
 function Tasks() {
-  const { tasks, addTask, deleteTask, completeTask } = useApp();
+  const { tasks, addTask, deleteTask, completeTask, toggleStarTask } = useApp();
   const [open, setOpen] = useState(false);
 
   // Form states
@@ -29,18 +29,20 @@ function Tasks() {
   const [priority, setPriority] = useState<"high" | "medium" | "low">("medium");
   const [due, setDue] = useState("");
   const [challenge, setChallenge] = useState<string | null>(null);
+  const [isStarred, setIsStarred] = useState(false);
 
   const handleAddTask = () => {
     if (!title.trim()) {
       toast.error("Please enter a task title.");
       return;
     }
-    addTask(title, priority, due, challenge);
+    addTask(title, priority, due, challenge, isStarred);
     toast.success("Task added! You are moving forward 🌟");
     setTitle("");
     setPriority("medium");
     setDue("");
     setChallenge(null);
+    setIsStarred(false);
     setOpen(false);
   };
 
@@ -52,6 +54,15 @@ function Tasks() {
   const handleDeleteTask = (id: number | string) => {
     deleteTask(id);
     toast.success("Task deleted.");
+  };
+
+  const handleToggleStar = (id: number | string, currentStarred?: boolean) => {
+    toggleStarTask(id);
+    if (!currentStarred) {
+      toast.success("Marked as important ⭐");
+    } else {
+      toast.info("Removed from important");
+    }
   };
 
   return (
@@ -73,7 +84,13 @@ function Tasks() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {columns.map((col) => {
-          const items = tasks.filter((t) => t.status === col.key);
+          const colItems = tasks.filter((t) => t.status === col.key);
+          // Sort starred items to top of column
+          const items = [
+            ...colItems.filter((t) => t.starred),
+            ...colItems.filter((t) => !t.starred),
+          ];
+
           return (
             <div key={col.key} className="glass rounded-3xl p-4 shadow-card">
               <div className="flex items-center justify-between mb-4">
@@ -91,26 +108,67 @@ function Tasks() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.05 }}
                     whileHover={{ y: -2 }}
-                    className="glass rounded-2xl p-3 shadow-soft hover:shadow-glow transition-all group"
+                    className={`glass rounded-2xl p-3 shadow-soft hover:shadow-glow transition-all group relative border ${
+                      t.starred ? "border-amber-400/50 bg-amber-500/5" : "border-border/40"
+                    }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className={`text-sm font-medium ${t.status === "completed" ? "line-through text-muted-foreground" : ""}`}>{t.title}</div>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: `var(--${priorityColor[t.priority]})`, color: `var(--${priorityColor[t.priority]}-foreground)` }}>{t.priority}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          {t.starred && (
+                            <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 shrink-0" />
+                          )}
+                          <div className={`text-sm font-medium truncate ${t.status === "completed" ? "line-through text-muted-foreground" : ""}`}>
+                            {t.title}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-medium"
+                            style={{
+                              background: `var(--${priorityColor[t.priority]})`,
+                              color: `var(--${priorityColor[t.priority]}-foreground)`,
+                            }}
+                          >
+                            {t.priority}
+                          </span>
                           <span className="text-xs text-muted-foreground">{t.due}</span>
                         </div>
                         {t.challenge && <div className="text-xs text-muted-foreground mt-1.5">🏆 {t.challenge}</div>}
                       </div>
-                      <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {t.status !== "completed" && (
-                          <button onClick={() => handleCompleteTask(t.id)} className="h-6 w-6 rounded-full bg-green/30 flex items-center justify-center hover:bg-green/60 cursor-pointer">
-                            <Check className="h-3 w-3" />
-                          </button>
-                        )}
-                        <button onClick={() => handleDeleteTask(t.id)} className="h-6 w-6 rounded-full bg-coral/30 flex items-center justify-center hover:bg-coral/60 cursor-pointer">
-                          <Trash2 className="h-3 w-3" />
+
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleToggleStar(t.id, t.starred)}
+                          className={`h-7 w-7 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
+                            t.starred
+                              ? "bg-amber-400/20 text-amber-400"
+                              : "bg-muted/50 text-muted-foreground hover:text-amber-400 opacity-0 group-hover:opacity-100"
+                          }`}
+                          title={t.starred ? "Unstar task" : "Star task as important"}
+                        >
+                          <Star className={`h-3.5 w-3.5 ${t.starred ? "fill-amber-400" : ""}`} />
                         </button>
+
+                        <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {t.status !== "completed" && (
+                            <button
+                              onClick={() => handleCompleteTask(t.id)}
+                              className="h-6 w-6 rounded-full bg-green/30 flex items-center justify-center hover:bg-green/60 cursor-pointer"
+                              title="Complete"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteTask(t.id)}
+                            className="h-6 w-6 rounded-full bg-coral/30 flex items-center justify-center hover:bg-coral/60 cursor-pointer"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </motion.div>
@@ -147,8 +205,8 @@ function Tasks() {
                   className="px-4 py-3 rounded-xl bg-muted/50 border border-border outline-none text-foreground"
                 >
                   <option value="low">Low priority</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
+                  <option value="medium">Medium priority</option>
+                  <option value="high">High priority</option>
                 </select>
                 <input
                   type="date"
@@ -165,8 +223,22 @@ function Tasks() {
                 <option value="">No challenge linked</option>
                 <option value="7-Day Gratitude Journal">7-Day Gratitude Journal</option>
                 <option value="Mindful Mornings">Mindful Mornings</option>
-                <option value="Move Every Day">Move Every Day</option>
               </select>
+
+              {/* Star toggle in modal */}
+              <button
+                type="button"
+                onClick={() => setIsStarred(!isStarred)}
+                className={`w-full py-2.5 px-4 rounded-xl border transition-all flex items-center justify-center gap-2 text-sm font-medium cursor-pointer ${
+                  isStarred
+                    ? "border-amber-400 bg-amber-500/10 text-amber-400"
+                    : "border-border/60 bg-muted/30 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Star className={`h-4 w-4 ${isStarred ? "fill-amber-400 text-amber-400" : ""}`} />
+                {isStarred ? "Marked as Important ⭐" : "Mark as Important ⭐"}
+              </button>
+
               <button onClick={handleAddTask} className="w-full py-3 rounded-xl gradient-primary text-white font-semibold shadow-glow cursor-pointer">Add Task</button>
             </div>
           </motion.div>
