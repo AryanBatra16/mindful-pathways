@@ -485,8 +485,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             break;
           }
           case "mood_streak_5": {
-            const uniqueDays = new Set(moodHistory.map((h) => h.date));
-            progress = Math.min(100, Math.round((uniqueDays.size / req) * 100));
+            const currentStreak = computeStreak(moodHistory);
+            progress = Math.min(100, Math.round((currentStreak / req) * 100));
             break;
           }
           case "reflection_writer": {
@@ -707,8 +707,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return Math.min(100, Math.round((earlyDays.size / req) * 100));
       }
       case "mood_streak_5": {
-        const uniqueDays = new Set(moodHistory.map((h) => h.date));
-        return Math.min(100, Math.round((uniqueDays.size / req) * 100));
+        return Math.min(100, Math.round((computeStreak(moodHistory) / req) * 100));
       }
       case "reflection_writer": {
         const withNotes = moodHistory.filter((h) => h.note && h.note.trim().length > 3).length;

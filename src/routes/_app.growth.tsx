@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Sparkles, Trophy, TrendingUp, Lock } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { useApp, toISODate } from "@/lib/state";
+import { useApp, toISODate, computeStreak } from "@/lib/state";
 
 export const Route = createFileRoute("/_app/growth")({
   head: () => ({ meta: [{ title: "Growth Map — Mind2Care" }] }),
@@ -25,13 +25,16 @@ function niceDate(isoStr: string | undefined): string {
 function Growth() {
   const { userProfile, moodHistory, challenges, communityPosts } = useApp();
 
+  // The ONE source of truth for streak — same function the dashboard uses
+  const streak = computeStreak(moodHistory);
+
   // Dynamically calculate badge status
   const badgesList = [
     { id: 1, name: "First Step", desc: "Logged your first mood", icon: "🌱", earned: moodHistory.length > 0, color: "green" },
-    { id: 2, name: "Week Warrior", desc: "7-day streak", icon: "🔥", earned: moodHistory.length >= 7, color: "coral" },
+    { id: 2, name: "Week Warrior", desc: "7-day streak", icon: "🔥", earned: streak >= 7 || !!userProfile.firstWeekDate, color: "coral" },
     { id: 3, name: "Mindful Master", desc: "Complete 1 challenge", icon: "🧘", earned: challenges.filter(c => c.status === 'completed').length >= 1, color: "purple" },
     { id: 4, name: "Community Heart", desc: "React to a post", icon: "💖", earned: communityPosts.some(p => p.liked), color: "pink" },
-    { id: 5, name: "Calm Keeper", desc: "30-day mood streak", icon: "🌊", earned: moodHistory.length >= 30, color: "blue" },
+    { id: 5, name: "Calm Keeper", desc: "30-day mood streak", icon: "🌊", earned: streak >= 30, color: "blue" },
     { id: 6, name: "Growth Guru", desc: "Reach 1200 points", icon: "🌳", earned: userProfile.points >= 1200, color: "turquoise" },
   ];
 
@@ -46,7 +49,6 @@ function Growth() {
   // Compute first challenge completion from state
   const firstCompletedChallenge = challenges.find(c => c.status === "completed");
 
-  const uniqueMoodDays = new Set(moodHistory.map(h => h.date));
 
   // ── Safe joinDate: you MUST have joined before logging your first mood.
   // If stored joinDate is missing or is somehow after firstMoodDate, cap it.
@@ -81,9 +83,10 @@ function Growth() {
     {
       id: 3,
       title: "First 7-day streak",
-      isoDate: uniqueMoodDays.size >= 7 ? (userProfile.firstWeekDate || today) : null,
-      done: uniqueMoodDays.size >= 7,
-      pending: `${uniqueMoodDays.size}/7 days logged`,
+      // Done if currently on a 7+ day streak OR if we previously recorded achieving it
+      isoDate: (streak >= 7 || !!userProfile.firstWeekDate) ? (userProfile.firstWeekDate || today) : null,
+      done: streak >= 7 || !!userProfile.firstWeekDate,
+      pending: `${streak}/7 day streak`,
     },
     {
       id: 4,
@@ -95,9 +98,9 @@ function Growth() {
     {
       id: 5,
       title: "30-day mood streak",
-      isoDate: uniqueMoodDays.size >= 30 ? today : null,
-      done: uniqueMoodDays.size >= 30,
-      pending: `${uniqueMoodDays.size}/30 days logged`,
+      isoDate: streak >= 30 ? today : null,
+      done: streak >= 30,
+      pending: `${streak}/30 day streak`,
     },
     {
       id: 6,
