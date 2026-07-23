@@ -105,7 +105,7 @@ interface AuthResult {
   error?: string;
 }
 
-interface AppContextType {
+export interface AppContextType {
   userProfile: UserProfile;
   tasks: Task[];
   moodHistory: MoodLog[];
@@ -206,6 +206,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [challenges, setChallenges] = useState<Challenge[]>(initialChallenges as Challenge[]);
   const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([]);
   const [savedQuotes, setSavedQuotes] = useState<number[]>([]);
+
   const [settings, setSettings] = useState<AppSettings>({
     theme: "Light",
     fontSize: 16,
@@ -859,6 +860,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (isDemoActive()) return;
     await toggleSaveQuoteServerFn({ data: { quoteId: id } });
   };
+
+
 
   const resetAllData = async () => {
     // For D1 we can reset profile & tables or clear localStorage

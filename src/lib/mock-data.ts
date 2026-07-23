@@ -263,3 +263,31 @@ export const DEMO_CHAT_SESSIONS = [
     ],
   },
 ];
+
+export const DEMO_CHAT_ROOMS = [
+  { id: "community_feed", name: "Community Feed", type: "group" as const, icon: "heart", unreadCount: 0, participants: [] },
+  { id: "group_anxiety", name: "Anxiety Support", type: "group" as const, icon: "users", color: "purple", unreadCount: 3, participants: ["u1", "u2", "u3", "demo_user"] },
+  { id: "group_gratitude", name: "Daily Gratitude", type: "group" as const, icon: "users", color: "coral", unreadCount: 0, participants: ["u2", "u4", "demo_user"] },
+  { id: "dm_leo", name: "Leo", type: "dm" as const, unreadCount: 1, participants: ["u1", "demo_user"] },
+  { id: "dm_maya", name: "Maya", type: "dm" as const, unreadCount: 0, participants: ["u2", "demo_user"] },
+];
+
+export const DEMO_PRESENCE_ROSTER = [
+  { id: "u1", name: "Leo", status: "online" as const, avatar: "L" },
+  { id: "u2", name: "Maya", status: "online" as const, avatar: "M" },
+  { id: "u3", name: "Alex K.", status: "offline" as const, lastSeen: "2h ago", avatar: "A" },
+  { id: "u4", name: "Sarah", status: "offline" as const, lastSeen: "1d ago", avatar: "S" },
+];
+
+export const DEMO_CHAT_MESSAGES = [
+  // Group: Anxiety Support
+  { id: "msg1", roomId: "group_anxiety", sender: "u1", senderName: "Leo", content: "Hey everyone, feeling a bit overwhelmed today.", timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(), status: "read" as const, readBy: ["u2", "u3", "demo_user"] },
+  { id: "msg2", roomId: "group_anxiety", sender: "u2", senderName: "Maya", content: "I hear you, Leo. Take it one breath at a time.", timestamp: new Date(Date.now() - 1000 * 60 * 55).toISOString(), status: "read" as const, readBy: ["u1", "u3", "demo_user"], replyTo: { id: "msg1", roomId: "group_anxiety", sender: "u1", senderName: "Leo", content: "Hey everyone, feeling a bit overwhelmed today.", timestamp: "", status: "read" as const, readBy: [] } },
+  { id: "msg3", roomId: "group_anxiety", sender: "u3", senderName: "Alex K.", content: "Sending good vibes! 🌊", timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), status: "delivered" as const, readBy: ["demo_user"] },
+  { id: "msg4", roomId: "group_anxiety", sender: "u1", senderName: "Leo", content: "Thanks guys 💙", timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(), status: "delivered" as const, readBy: ["demo_user"] },
+  
+  // DM: Leo
+  { id: "msg5", roomId: "dm_leo", sender: "u1", senderName: "Leo", content: "Hey Aria, how's your presentation prep going?", timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), status: "read" as const, readBy: ["demo_user"] },
+  { id: "msg6", roomId: "dm_leo", sender: "demo_user", senderName: "Aria Wells", content: "Getting there! Still a bit nervous.", timestamp: new Date(Date.now() - 1000 * 60 * 25).toISOString(), status: "read" as const, readBy: ["u1"] },
+  { id: "msg7", roomId: "dm_leo", sender: "u1", senderName: "Leo", content: "You'll crush it. Just remember to breathe.", timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(), status: "delivered" as const, readBy: [] },
+];

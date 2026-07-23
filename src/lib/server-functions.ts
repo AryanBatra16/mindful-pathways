@@ -376,4 +376,4 @@ export const saveUserChallengeServerFn = createServerFn({ method: "POST" })
       });
     }
     return { success: true };
-  });
+});
