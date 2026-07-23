@@ -39,51 +39,56 @@ function Growth() {
   const nextLevelThreshold = 1500;
   const levelProgressPercent = Math.min(100, Math.floor((userProfile.points / nextLevelThreshold) * 100));
 
-  // Find the earliest mood log date
+  // Find the earliest mood log date from history
   const sortedMoodDates = [...moodHistory].map(h => h.date).sort();
   const firstMoodIsoDate = sortedMoodDates.length > 0 ? sortedMoodDates[0] : undefined;
 
-  // Compute first challenge completion date from state
+  // Compute first challenge completion from state
   const firstCompletedChallenge = challenges.find(c => c.status === "completed");
 
   const uniqueMoodDays = new Set(moodHistory.map(h => h.date));
 
-  // ─── Build raw milestone definitions ────────────────────────────────────
-  // Each milestone has: title, done flag, and isoDate (for sorting & display)
+  // ── Safe joinDate: you MUST have joined before logging your first mood.
+  // If stored joinDate is missing or is somehow after firstMoodDate, cap it.
+  const rawJoinDate = userProfile.joinDate;
+  const safeJoinDate: string = (() => {
+    if (!rawJoinDate && !firstMoodIsoDate) return toISODate(new Date());
+    if (!rawJoinDate) return firstMoodIsoDate!;          // no joinDate → use first mood
+    if (!firstMoodIsoDate) return rawJoinDate;            // no moods yet → use joinDate
+    return rawJoinDate < firstMoodIsoDate ? rawJoinDate : firstMoodIsoDate; // min of both
+  })();
+
   const today = toISODate(new Date());
 
-  const rawMilestones = [
-    {
-      id: 1,
-      title: "Joined Mind2Care",
-      isoDate: userProfile.joinDate || today,
-      done: true,
-    },
+  // ── "Joined Mind2Care" is ALWAYS milestone #1 (pinned, never sorted away)
+  const joinedMilestone = {
+    id: 1,
+    title: "Joined Mind2Care",
+    date: niceDate(safeJoinDate),
+    isoDate: safeJoinDate,
+    done: true,
+  };
+
+  // ── Remaining milestones: build with isoDate for sorting
+  const otherRaw = [
     {
       id: 2,
       title: "First mood logged",
-      isoDate: moodHistory.length > 0
-        ? (userProfile.firstMoodDate || firstMoodIsoDate || today)
-        : null,
+      isoDate: moodHistory.length > 0 ? (userProfile.firstMoodDate || firstMoodIsoDate || today) : null,
       done: moodHistory.length > 0,
-      pending: `${uniqueMoodDays.size}/1 moods`,
+      pending: "Log your first mood",
     },
     {
       id: 3,
       title: "First 7-day streak",
-      isoDate: uniqueMoodDays.size >= 7
-        ? (userProfile.firstWeekDate || today)
-        : null,
+      isoDate: uniqueMoodDays.size >= 7 ? (userProfile.firstWeekDate || today) : null,
       done: uniqueMoodDays.size >= 7,
-      pending: `${uniqueMoodDays.size}/7 days`,
+      pending: `${uniqueMoodDays.size}/7 days logged`,
     },
     {
       id: 4,
       title: "Completed first challenge",
-      // Use firstChallengeDate if set, otherwise fall back to today (just completed)
-      isoDate: firstCompletedChallenge
-        ? (userProfile.firstChallengeDate || today)
-        : null,
+      isoDate: firstCompletedChallenge ? (userProfile.firstChallengeDate || today) : null,
       done: !!firstCompletedChallenge,
       pending: "No challenge completed yet",
     },
@@ -92,7 +97,7 @@ function Growth() {
       title: "30-day mood streak",
       isoDate: uniqueMoodDays.size >= 30 ? today : null,
       done: uniqueMoodDays.size >= 30,
-      pending: `${uniqueMoodDays.size}/30 days`,
+      pending: `${uniqueMoodDays.size}/30 days logged`,
     },
     {
       id: 6,
@@ -103,24 +108,19 @@ function Growth() {
     },
   ];
 
-  // ─── Sort: completed milestones by date (ascending), pending ones after ──
-  const completedMilestones = rawMilestones
+  // Completed ones sorted by real date ascending; pending ones in logical id order
+  const completedOthers = otherRaw
     .filter(m => m.done && m.isoDate)
-    .sort((a, b) => (a.isoDate! < b.isoDate! ? -1 : a.isoDate! > b.isoDate! ? 1 : a.id - b.id));
+    .sort((a, b) => a.isoDate! < b.isoDate! ? -1 : a.isoDate! > b.isoDate! ? 1 : a.id - b.id);
 
-  const pendingMilestones = rawMilestones
+  const pendingOthers = otherRaw
     .filter(m => !m.done)
-    .sort((a, b) => a.id - b.id); // keep logical order for pending
+    .sort((a, b) => a.id - b.id);
 
   const milestones = [
-    ...completedMilestones.map(m => ({
-      ...m,
-      date: niceDate(m.isoDate!),
-    })),
-    ...pendingMilestones.map(m => ({
-      ...m,
-      date: m.pending || "Soon",
-    })),
+    joinedMilestone,
+    ...completedOthers.map(m => ({ ...m, date: niceDate(m.isoDate!) })),
+    ...pendingOthers.map(m => ({ ...m, date: m.pending })),
   ];
 
   return (
