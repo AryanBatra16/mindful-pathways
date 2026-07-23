@@ -447,6 +447,83 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [settings]);
 
+  // ─── Auto-complete challenges when progress hits 100% ─────────────────────
+  useEffect(() => {
+    // Only run when data is loaded and there are active challenges
+    const activeChallenges = challenges.filter((c) => c.status === "active");
+    if (activeChallenges.length === 0) return;
+
+    let anyCompleted = false;
+
+    setChallenges((prev) =>
+      prev.map((c) => {
+        if (c.status !== "active") return c;
+
+        // Compute live progress inline (mirrors computeChallengeProgress)
+        const req = c.requirementCount || 1;
+        let progress = c.progress;
+
+        switch (c.verifyType) {
+          case "gratitude_journal": {
+            const days = new Set(
+              moodHistory.filter((h) => h.type === "daily" && h.note && h.note.trim().length > 0).map((h) => h.date)
+            );
+            progress = Math.min(100, Math.round((days.size / req) * 100));
+            break;
+          }
+          case "mindful_mornings": {
+            const earlyDays = new Set(
+              moodHistory
+                .filter((h) => {
+                  const hour = parseInt(h.time.split(":")[0]);
+                  const isAM = h.time.toLowerCase().includes("am");
+                  return isAM && hour < 9;
+                })
+                .map((h) => h.date)
+            );
+            progress = Math.min(100, Math.round((earlyDays.size / req) * 100));
+            break;
+          }
+          case "mood_streak_5": {
+            const uniqueDays = new Set(moodHistory.map((h) => h.date));
+            progress = Math.min(100, Math.round((uniqueDays.size / req) * 100));
+            break;
+          }
+          case "reflection_writer": {
+            const withNotes = moodHistory.filter((h) => h.note && h.note.trim().length > 3).length;
+            progress = Math.min(100, Math.round((withNotes / req) * 100));
+            break;
+          }
+          case "social_spark": {
+            const myPosts = communityPosts.filter((p) => !p.anon && p.author === userProfile.name).length;
+            progress = Math.min(100, Math.round((myPosts / req) * 100));
+            break;
+          }
+          default:
+            progress = c.progress;
+        }
+
+        if (progress >= 100) {
+          anyCompleted = true;
+          // Award points and persist
+          setUserProfile((prev) => {
+            const newPoints = prev.points + c.points;
+            return { ...prev, points: newPoints, level: getLevelForPoints(newPoints) };
+          });
+          if (!isDemoActive()) {
+            saveUserChallengeServerFn({ data: { challengeId: c.id, progress: 100, status: "completed" } });
+            updateUserProfileServerFn({ data: { points: userProfile.points + c.points, level: getLevelForPoints(userProfile.points + c.points) } });
+          }
+          toast.success(`🎉 Challenge completed: "${c.title}"! +${c.points} pts`, { duration: 4000 });
+          return { ...c, progress: 100, status: "completed" };
+        }
+
+        // Update stored progress even if not yet complete
+        return { ...c, progress };
+      })
+    );
+  }, [moodHistory, communityPosts, tasks]);
+
   const login = async (email: string, password: string): Promise<AuthResult> => {
     const res = await loginServerFn({ data: { email, password } });
     if (res.success) {
