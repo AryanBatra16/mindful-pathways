@@ -123,6 +123,8 @@ export default defineConfig(async (env) => {
       ssr: {
         noExternal: true,
         external: [
+          "postgres",
+          "drizzle-orm",
           "node:async_hooks",
           "node:stream",
           "node:stream/web",
