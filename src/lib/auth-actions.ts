@@ -52,11 +52,10 @@ export async function signUpUser(
   }
 
   // Check existing user
-  const existing = await db
+  const [existing] = await db
     .select()
     .from(users)
-    .where(eq(users.email, normalizedEmail))
-    .get();
+    .where(eq(users.email, normalizedEmail));
 
   if (existing) {
     return {
@@ -78,12 +77,10 @@ export async function signUpUser(
 
   const token = generateSessionToken();
   const expiresAt = getSessionExpirationDate();
-  const expiresTimestamp = Math.floor(expiresAt.getTime() / 1000);
-
   await db.insert(sessions).values({
     id: token,
     user_id: userId,
-    expires_at: expiresTimestamp,
+    expires_at: expiresAt,
   });
 
   const userObj: AuthUser = { id: userId, email: normalizedEmail, name };
@@ -111,11 +108,10 @@ export async function signInUser(
     };
   }
 
-  const user = await db
+  const [user] = await db
     .select()
     .from(users)
-    .where(eq(users.email, normalizedEmail))
-    .get();
+    .where(eq(users.email, normalizedEmail));
 
   if (!user) {
     return {
@@ -134,7 +130,6 @@ export async function signInUser(
 
   const token = generateSessionToken();
   const expiresAt = getSessionExpirationDate();
-  const expiresTimestamp = Math.floor(expiresAt.getTime() / 1000);
 
   // Clear any existing sessions for this user to enforce single active session
   await db.delete(sessions).where(eq(sessions.user_id, user.id));
@@ -142,7 +137,7 @@ export async function signInUser(
   await db.insert(sessions).values({
     id: token,
     user_id: user.id,
-    expires_at: expiresTimestamp,
+    expires_at: expiresAt,
   });
 
   const userObj: AuthUser = {
@@ -196,26 +191,23 @@ export async function getCurrentUser(
   const token = parseSessionTokenFromCookie(cookieHeader);
   if (!token) return null;
 
-  const session = await db
+  const [session] = await db
     .select()
     .from(sessions)
-    .where(eq(sessions.id, token))
-    .get();
+    .where(eq(sessions.id, token));
 
   if (!session) return null;
 
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  if (session.expires_at < nowSeconds) {
+  if (session.expires_at < new Date()) {
     // Expired session -> clean up
     await db.delete(sessions).where(eq(sessions.id, token));
     return null;
   }
 
-  const user = await db
+  const [user] = await db
     .select()
     .from(users)
-    .where(eq(users.id, session.user_id))
-    .get();
+    .where(eq(users.id, session.user_id));
 
   if (!user) return null;
 

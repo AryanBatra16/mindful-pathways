@@ -1,7 +1,6 @@
-import { sqliteTable, text, integer, primaryKey, index } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
+import { pgTable, text, integer, boolean, timestamp, primaryKey, index } from "drizzle-orm/pg-core";
 
-export const users = sqliteTable(
+export const users = pgTable(
   "users",
   {
     id: text("id").primaryKey(),
@@ -14,20 +13,20 @@ export const users = sqliteTable(
     theme: text("theme").default("Dark"),
     avatar: text("avatar"),
     font_size: integer("font_size").default(16),
-    compact_mode: integer("compact_mode", { mode: "boolean" }).default(false),
-    reduce_animations: integer("reduce_animations", { mode: "boolean" }).default(false),
-    high_contrast: integer("high_contrast", { mode: "boolean" }).default(false),
-    default_anonymous: integer("default_anonymous", { mode: "boolean" }).default(false),
-    email_insights: integer("email_insights", { mode: "boolean" }).default(true),
+    compact_mode: boolean("compact_mode").default(false),
+    reduce_animations: boolean("reduce_animations").default(false),
+    high_contrast: boolean("high_contrast").default(false),
+    default_anonymous: boolean("default_anonymous").default(false),
+    email_insights: boolean("email_insights").default(true),
     daily_reminder: text("daily_reminder"),
-    created_at: integer("created_at").default(sql`(strftime('%s', 'now'))`),
+    created_at: timestamp("created_at").defaultNow(),
   },
   (table) => [
     index("idx_users_email").on(table.email),
   ]
 );
 
-export const mood_history = sqliteTable(
+export const mood_history = pgTable(
   "mood_history",
   {
     id: text("id").primaryKey(),
@@ -38,14 +37,14 @@ export const mood_history = sqliteTable(
     intensity: integer("intensity"),
     tags: text("tags"),
     note: text("note"),
-    created_at: integer("created_at").default(sql`(strftime('%s', 'now'))`),
+    created_at: timestamp("created_at").defaultNow(),
   },
   (table) => [
     index("idx_mood_history_user_id").on(table.user_id),
   ]
 );
 
-export const user_challenges = sqliteTable(
+export const user_challenges = pgTable(
   "user_challenges",
   {
     id: text("id").primaryKey(),
@@ -53,14 +52,14 @@ export const user_challenges = sqliteTable(
     challenge_id: integer("challenge_id").notNull(),
     progress: integer("progress").default(0),
     status: text("status").default("active"),
-    updated_at: integer("updated_at").default(sql`(strftime('%s', 'now'))`),
+    updated_at: timestamp("updated_at").defaultNow(),
   },
   (table) => [
     index("idx_user_challenges_user_id").on(table.user_id),
   ]
 );
 
-export const tasks = sqliteTable(
+export const tasks = pgTable(
   "tasks",
   {
     id: text("id").primaryKey(),
@@ -70,31 +69,31 @@ export const tasks = sqliteTable(
     status: text("status").default("today"),
     due: text("due"),
     challenge_id: text("challenge_id"),
-    created_at: integer("created_at").default(sql`(strftime('%s', 'now'))`),
+    created_at: timestamp("created_at").defaultNow(),
   },
   (table) => [
     index("idx_tasks_user_id").on(table.user_id),
   ]
 );
 
-export const community_posts = sqliteTable(
+export const community_posts = pgTable(
   "community_posts",
   {
     id: text("id").primaryKey(),
     user_id: text("user_id").references(() => users.id, { onDelete: "cascade" }),
     author_name: text("author_name"),
-    anon: integer("anon", { mode: "boolean" }).default(false),
+    anon: boolean("anon").default(false),
     category: text("category").notNull(),
     content: text("content").notNull(),
     color: text("color"),
-    created_at: integer("created_at").default(sql`(strftime('%s', 'now'))`),
+    created_at: timestamp("created_at").defaultNow(),
   },
   (table) => [
     index("idx_community_posts_user_id").on(table.user_id),
   ]
 );
 
-export const post_likes = sqliteTable(
+export const post_likes = pgTable(
   "post_likes",
   {
     post_id: text("post_id")
@@ -110,42 +109,42 @@ export const post_likes = sqliteTable(
   ]
 );
 
-export const saved_quotes = sqliteTable(
+export const saved_quotes = pgTable(
   "saved_quotes",
   {
     id: text("id").primaryKey(),
     user_id: text("user_id").references(() => users.id, { onDelete: "cascade" }),
     quote_id: integer("quote_id").notNull(),
-    created_at: integer("created_at").default(sql`(strftime('%s', 'now'))`),
+    created_at: timestamp("created_at").defaultNow(),
   },
   (table) => [
     index("idx_saved_quotes_user_id").on(table.user_id),
   ]
 );
 
-export const chatbot_messages = sqliteTable(
+export const chatbot_messages = pgTable(
   "chatbot_messages",
   {
     id: text("id").primaryKey(),
     user_id: text("user_id").references(() => users.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
     text: text("text").notNull(),
-    created_at: integer("created_at").default(sql`(strftime('%s', 'now'))`),
+    created_at: timestamp("created_at").defaultNow(),
   },
   (table) => [
     index("idx_chatbot_messages_user_id").on(table.user_id),
   ]
 );
 
-export const sessions = sqliteTable(
+export const sessions = pgTable(
   "sessions",
   {
     id: text("id").primaryKey(),
     user_id: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    expires_at: integer("expires_at").notNull(),
-    created_at: integer("created_at").default(sql`(strftime('%s', 'now'))`),
+    expires_at: timestamp("expires_at").notNull(),
+    created_at: timestamp("created_at").defaultNow(),
   },
   (table) => [
     index("idx_sessions_user_id").on(table.user_id),

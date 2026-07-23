@@ -121,8 +121,8 @@ export default defineConfig(async (env) => {
       // Mark Node built-ins and dev-only packages as external in the SSR/Worker build.
       // better-sqlite3 is dev-only and must never appear in the production server bundle.
       ssr: {
+        noExternal: true,
         external: [
-          "better-sqlite3",
           "node:async_hooks",
           "node:stream",
           "node:stream/web",
@@ -135,9 +135,16 @@ export default defineConfig(async (env) => {
           "node:events",
         ],
       },
+      build: {
+        rollupOptions: {
+          output: {
+            inlineDynamicImports: true
+          }
+        }
+      },
       plugins: [
         serverModuleClientStub,
-        tanstackStart({ target: "cloudflare-pages" } as any),
+        tanstackStart(),
         react(),
         tailwindcss(),
         tsconfigPaths({ projects: ["./tsconfig.json"] }),

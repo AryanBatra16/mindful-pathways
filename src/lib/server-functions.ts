@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest, setResponseHeader } from "@tanstack/start-server-core";
-import { getDb } from "../db/index";
+
 import { signUpUser, signInUser, signOutUser, getCurrentUser } from "./auth-actions";
 import {
   getMoodHistory,
@@ -23,27 +23,7 @@ import { eq, and } from "drizzle-orm";
 
 // ─── Helper to retrieve D1 Database from Cloudflare Context ──────────────────
 export async function getContextDb() {
-  // In local Node.js dev mode (Vite), use the local SQLite shim directly.
-  // This avoids needing workerd/miniflare entirely.
-  // import.meta.env.DEV is replaced with `false` at build time so the shim
-  // and better-sqlite3 are completely tree-shaken out of the production bundle.
-  if (import.meta.env.DEV) {
-    // Dynamic import keeps better-sqlite3 out of the server bundle entirely
-    const { getLocalD1 } = await import("./d1-local-shim");
-    return getDb(getLocalD1());
-  }
-
-  // In production Cloudflare Workers, the D1 binding comes via request runtime.
-  const request = getRequest();
-  if (!request) {
-    throw new Error("No request context found.");
-  }
-  const cloudflare = (request as any).runtime?.cloudflare;
-  const d1 = cloudflare?.env?.DB;
-  if (!d1) {
-    throw new Error("Cloudflare D1 Database binding 'DB' not found.");
-  }
-  return getDb(d1);
+  return (await import("../db/index")).db;
 }
 
 // ─── Helper to parse session user from request cookie ────────────────────────
@@ -311,7 +291,7 @@ export const getSavedQuotesServerFn = createServerFn({ method: "GET" })
   .handler(async () => {
     const user = await getAuthenticatedUser();
     const db = await getContextDb();
-    const list = await db.select().from(saved_quotes).where(eq(saved_quotes.user_id, user.id)).all();
+    const list = await db.select().from(saved_quotes).where(eq(saved_quotes.user_id, user.id));
     return list.map((q) => q.quote_id);
   });
 
@@ -320,11 +300,10 @@ export const toggleSaveQuoteServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await getAuthenticatedUser();
     const db = await getContextDb();
-    const existing = await db
+    const [existing] = await db
       .select()
       .from(saved_quotes)
-      .where(and(eq(saved_quotes.user_id, user.id), eq(saved_quotes.quote_id, data.quoteId)))
-      .get();
+      .where(and(eq(saved_quotes.user_id, user.id), eq(saved_quotes.quote_id, data.quoteId)));
 
     if (existing) {
       await db
@@ -347,7 +326,7 @@ export const getUserChallengesServerFn = createServerFn({ method: "GET" })
   .handler(async () => {
     const user = await getAuthenticatedUser();
     const db = await getContextDb();
-    return await db.select().from(user_challenges).where(eq(user_challenges.user_id, user.id)).all();
+    return await db.select().from(user_challenges).where(eq(user_challenges.user_id, user.id));
   });
 
 export const saveUserChallengeServerFn = createServerFn({ method: "POST" })
@@ -355,16 +334,15 @@ export const saveUserChallengeServerFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const user = await getAuthenticatedUser();
     const db = await getContextDb();
-    const existing = await db
+    const [existing] = await db
       .select()
       .from(user_challenges)
-      .where(and(eq(user_challenges.user_id, user.id), eq(user_challenges.challenge_id, data.challengeId)))
-      .get();
+      .where(and(eq(user_challenges.user_id, user.id), eq(user_challenges.challenge_id, data.challengeId)));
 
     if (existing) {
       await db
         .update(user_challenges)
-        .set({ progress: data.progress, status: data.status, updated_at: Math.floor(Date.now() / 1000) })
+        .set({ progress: data.progress, status: data.status, updated_at: new Date() })
         .where(eq(user_challenges.id, existing.id));
     } else {
       await db.insert(user_challenges).values({

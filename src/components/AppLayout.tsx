@@ -149,18 +149,11 @@ export function AppLayout() {
         <div className="absolute bottom-4 left-3 right-3 group cursor-pointer">
           <div className="absolute bottom-full left-0 w-full pb-2 opacity-0 pointer-events-none translate-y-2 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 transition-all z-50">
             <div className="glass rounded-2xl shadow-glow p-4">
-              <div className="text-center mb-4">
+              <div className="text-center">
                 <p className="font-bold text-gradient text-lg">{userProfile.points} pts</p>
                 {userProfile.email && <p className="text-xs text-muted-foreground mt-1 truncate">{userProfile.email}</p>}
                 <p className="text-xs text-muted-foreground mt-2 line-clamp-3 leading-relaxed">{userProfile.bio}</p>
               </div>
-              <button
-                onClick={logout}
-                className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors text-sm font-medium"
-              >
-                <LogOut className="h-4 w-4" />
-                {!isCollapsed && <span>Sign Out</span>}
-              </button>
             </div>
           </div>
 

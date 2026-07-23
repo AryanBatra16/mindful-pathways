@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, sql } from "drizzle-orm";
+import { eq, and, desc, asc, sql, gte } from "drizzle-orm";
 import type { DbType } from "../db/index";
 import {
   mood_history,
@@ -20,8 +20,7 @@ export async function getMoodHistory(db: DbType, userId: string) {
     .select()
     .from(mood_history)
     .where(eq(mood_history.user_id, userId))
-    .orderBy(desc(mood_history.created_at))
-    .all();
+    .orderBy(desc(mood_history.created_at));
 }
 
 export async function addMoodLog(
@@ -48,11 +47,11 @@ export async function addMoodLog(
     note: data.note ?? "",
   });
 
-  return await db
+  return (await db
     .select()
     .from(mood_history)
     .where(eq(mood_history.id, id))
-    .get();
+    )[0];
 }
 
 export async function deleteMoodLog(db: DbType, userId: string, moodId: string) {
@@ -78,10 +77,9 @@ export async function ensureDefaultTasks(db: DbType, userId: string) {
     .where(
       and(
         eq(tasks.user_id, userId),
-        sql`${tasks.created_at} >= ${startOfTodaySeconds}`
+        gte(tasks.created_at, new Date(startOfTodaySeconds * 1000))
       )
-    )
-    .all();
+    );
 
   const defaultTasks = [
     { title: "Morning meditation", priority: "high" },
@@ -120,10 +118,9 @@ export async function ensureDefaultTasks(db: DbType, userId: string) {
     .where(
       and(
         eq(tasks.user_id, userId),
-        sql`${tasks.created_at} >= ${startOfWeekSeconds}`
+        gte(tasks.created_at, new Date(startOfWeekSeconds * 1000))
       )
-    )
-    .all();
+    );
 
   const defaultWeeklyTasks = [
     { title: "Call a friend or family member", priority: "medium" },
@@ -156,8 +153,7 @@ export async function getTasks(db: DbType, userId: string) {
     .select()
     .from(tasks)
     .where(eq(tasks.user_id, userId))
-    .orderBy(desc(tasks.created_at))
-    .all();
+    .orderBy(desc(tasks.created_at));
 }
 
 export async function addTask(
@@ -182,7 +178,7 @@ export async function addTask(
     challenge_id: data.challenge_id ?? null,
   });
 
-  return await db.select().from(tasks).where(eq(tasks.id, id)).get();
+  return (await db.select().from(tasks).where(eq(tasks.id, id)))[0];
 }
 
 export async function updateTaskStatus(
@@ -214,20 +210,18 @@ export async function getCommunityPosts(db: DbType, currentUserId?: string) {
   const posts = await db
     .select()
     .from(community_posts)
-    .orderBy(desc(community_posts.created_at))
-    .all();
+    .orderBy(desc(community_posts.created_at));
 
   const postsWithLikes = await Promise.all(
     posts.map(async (post) => {
-      const likesCountResult = await db
+      const [likesCountResult] = await db
         .select({ count: sql<number>`count(*)` })
         .from(post_likes)
-        .where(eq(post_likes.post_id, post.id))
-        .get();
+        .where(eq(post_likes.post_id, post.id));
 
       let isLiked = false;
       if (currentUserId) {
-        const userLike = await db
+        const [userLike] = await db
           .select()
           .from(post_likes)
           .where(
@@ -235,8 +229,7 @@ export async function getCommunityPosts(db: DbType, currentUserId?: string) {
               eq(post_likes.post_id, post.id),
               eq(post_likes.user_id, currentUserId)
             )
-          )
-          .get();
+          );
         isLiked = !!userLike;
       }
 
@@ -273,11 +266,11 @@ export async function createCommunityPost(
     color: data.color ?? "coral",
   });
 
-  return await db
+  return (await db
     .select()
     .from(community_posts)
     .where(eq(community_posts.id, id))
-    .get();
+    )[0];
 }
 
 export async function togglePostLike(
@@ -285,13 +278,12 @@ export async function togglePostLike(
   userId: string,
   postId: string
 ) {
-  const existing = await db
+  const [existing] = await db
     .select()
     .from(post_likes)
     .where(
       and(eq(post_likes.post_id, postId), eq(post_likes.user_id, userId))
-    )
-    .get();
+    );
 
   if (existing) {
     await db
@@ -318,8 +310,7 @@ export async function getChatbotMessages(db: DbType, userId: string) {
     .select()
     .from(chatbot_messages)
     .where(eq(chatbot_messages.user_id, userId))
-    .orderBy(asc(chatbot_messages.created_at))
-    .all();
+    .orderBy(asc(chatbot_messages.created_at));
 }
 
 export async function saveChatbotMessage(
@@ -335,11 +326,11 @@ export async function saveChatbotMessage(
     text: data.text,
   });
 
-  return await db
+  return (await db
     .select()
     .from(chatbot_messages)
     .where(eq(chatbot_messages.id, id))
-    .get();
+    )[0];
 }
 
 /* =========================================================================
@@ -370,5 +361,5 @@ export async function updateUserProfile(
     .set(updates)
     .where(eq(users.id, userId));
 
-  return await db.select().from(users).where(eq(users.id, userId)).get();
+  return (await db.select().from(users).where(eq(users.id, userId)))[0];
 }

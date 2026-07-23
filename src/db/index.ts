@@ -1,8 +1,9 @@
-import { drizzle } from "drizzle-orm/d1";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "./schema";
 
-export function getDb(d1: D1Database) {
-  return drizzle(d1, { schema });
-}
+// Disable prefetch as it is not supported for "Transaction" pool mode
+export const client = postgres(process.env.DATABASE_URL!, { prepare: false });
+export const db = drizzle(client, { schema });
 
-export type DbType = ReturnType<typeof getDb>;
+export type DbType = typeof db;

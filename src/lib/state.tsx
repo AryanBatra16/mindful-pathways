@@ -327,7 +327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               missedList.push({
                 id: t.id,
                 title: t.title,
-                date: new Date((t.created_at || Math.floor(Date.now() / 1000)) * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                date: new Date(t.created_at || Date.now()).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
               });
             }
             // Delete from database
