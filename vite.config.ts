@@ -121,7 +121,6 @@ export default defineConfig(async (env) => {
       // Mark Node built-ins and dev-only packages as external in the SSR/Worker build.
       // better-sqlite3 is dev-only and must never appear in the production server bundle.
       ssr: {
-        noExternal: true,
         external: [
           "postgres",
           "drizzle-orm",
