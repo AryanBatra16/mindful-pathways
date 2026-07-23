@@ -16,7 +16,23 @@ function Dashboard() {
   const { userProfile, moodHistory, challenges, logMood, computeChallengeProgress } = useApp();
 
   const todayQuote = getQuoteOfTheDay(quotes);
-  const activeChallenge = challenges.find((c) => c.status === "active") || challenges[0];
+  // Smart challenge selection: always show the most-progressed ACTIVE challenge.
+  // If multiple active ones exist, pick the one closest to 100%.
+  // Falls back to the highest-progress available challenge, then any challenge.
+  const activeChallenge = (() => {
+    const active = challenges.filter((c) => c.status === "active");
+    if (active.length > 0) {
+      return active.reduce((best, c) => {
+        const bProg = computeChallengeProgress(best);
+        const cProg = computeChallengeProgress(c);
+        return cProg > bProg ? c : best;
+      });
+    }
+    const available = challenges.filter((c) => c.status === "available");
+    if (available.length > 0) return available[0];
+    return challenges[0];
+  })();
+
   const activeChallengeProgress = activeChallenge
     ? (activeChallenge.status === "completed" ? 100 : computeChallengeProgress(activeChallenge))
     : 0;
