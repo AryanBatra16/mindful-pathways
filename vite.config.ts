@@ -89,6 +89,7 @@ export default defineConfig(async (env) => {
   return mergeConfig(
     {
       server: { host: "::", port: 8080 },
+      preview: { allowedHosts: true },
     },
     {
       define: envDefine,
