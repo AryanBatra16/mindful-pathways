@@ -1,6 +1,6 @@
 import { Link, useLocation, Outlet } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, MessageCircleHeart, CalendarHeart, Quote, Trophy, ListTodo, Users, BarChart3, Sparkles, Settings, Menu, X, LogOut, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LayoutDashboard, MessageCircleHeart, CalendarHeart, Quote, Trophy, ListTodo, Users, BarChart3, Sparkles, Settings, Menu, X, LogOut, PanelLeftClose, PanelLeftOpen, FlaskConical } from "lucide-react";
 import { useState, useEffect } from "react";
 import { BackgroundBlobs } from "./BackgroundBlobs";
 import { cn } from "@/lib/utils";
@@ -28,7 +28,7 @@ export function AppLayout() {
     }
     return false;
   });
-  const { userProfile, logout, tasks } = useApp();
+  const { userProfile, logout, tasks, isDemoMode } = useApp();
 
   const [showMissedModal, setShowMissedModal] = useState(false);
   const [missedTasks, setMissedTasks] = useState<string[]>([]);
@@ -209,6 +209,19 @@ export function AppLayout() {
         </header>
 
         <main className="p-4 lg:p-8 relative">
+          {/* Demo mode banner */}
+          {isDemoMode && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-2xl glass border border-primary/30 text-sm"
+              style={{ background: "linear-gradient(to right, var(--purple)/10, var(--turquoise)/10)" }}
+            >
+              <FlaskConical className="h-4 w-4 text-primary shrink-0" />
+              <span className="font-medium text-primary">Demo Mode</span>
+              <span className="text-muted-foreground text-xs ml-1">— You're exploring with pre-filled sample data. No real account needed.</span>
+            </motion.div>
+          )}
           <Outlet />
         </main>
       </div>

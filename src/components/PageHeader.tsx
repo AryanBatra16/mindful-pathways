@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, LogOut, Trophy, Heart, CalendarHeart, Users, CheckCircle, Flame, AlertCircle } from "lucide-react";
+import { Bell, LogOut, Trophy, Heart, CalendarHeart, Users, CheckCircle, Flame, AlertCircle, Star, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useApp } from "@/lib/state";
 
@@ -9,10 +9,14 @@ interface PageHeaderProps {
   accent?: string;
 }
 
+const NOTIF_READ_KEY = "notif_read_at";
+const DISMISSED_NOTIF_KEY = "dismissed_notif_ids";
+const STARRED_NOTIF_KEY = "starred_notif_ids";
+
 export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProps) {
   const { userProfile, moodHistory, challenges, logout } = useApp();
   const [notifOpen, setNotifOpen] = useState(false);
-  
+
   const [missedTasksNotifs, setMissedTasksNotifs] = useState<{ id: string; title: string; date: string }[]>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -23,22 +27,88 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
     return [];
   });
 
+  // Persist "read" state in localStorage so it survives tab changes
   const [notifRead, setNotifRead] = useState(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("missed_daily_tasks");
-      if (stored) {
+      const readAt = localStorage.getItem(NOTIF_READ_KEY);
+      if (readAt) {
         try {
-          const parsed = JSON.parse(stored);
-          return !(Array.isArray(parsed) && parsed.length > 0);
-        } catch (e) {}
+          const stored = localStorage.getItem("missed_daily_tasks");
+          const parsed = stored ? JSON.parse(stored) : [];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return true;
+          }
+        } catch {}
+        return true;
       }
+      try {
+        const stored = localStorage.getItem("missed_daily_tasks");
+        const parsed = stored ? JSON.parse(stored) : [];
+        return !(Array.isArray(parsed) && parsed.length > 0);
+      } catch {}
     }
     return true;
   });
 
+  // Dismissed notification IDs
+  const [dismissedIds, setDismissedIds] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(DISMISSED_NOTIF_KEY);
+        return stored ? JSON.parse(stored) : [];
+      } catch {}
+    }
+    return [];
+  });
+
+  // Starred notification IDs
+  const [starredIds, setStarredIds] = useState<string[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(STARRED_NOTIF_KEY);
+        return stored ? JSON.parse(stored) : [];
+      } catch {}
+    }
+    return [];
+  });
+
+  // Listen for storage changes (e.g. new missed tasks set by AppLayout)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "missed_daily_tasks") {
+        try {
+          const parsed = e.newValue ? JSON.parse(e.newValue) : [];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setNotifRead(false);
+            localStorage.removeItem(NOTIF_READ_KEY);
+            setMissedTasksNotifs(parsed);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  // Check on mount for unread missed tasks
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("missed_daily_tasks");
+      const parsed = stored ? JSON.parse(stored) : [];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setMissedTasksNotifs(parsed);
+        const readAt = localStorage.getItem(NOTIF_READ_KEY);
+        if (!readAt) {
+          setNotifRead(false);
+        }
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     if (notifOpen) {
       setNotifRead(true);
+      localStorage.setItem(NOTIF_READ_KEY, String(Date.now()));
       try {
         const stored = localStorage.getItem("missed_daily_tasks");
         setMissedTasksNotifs(stored ? JSON.parse(stored) : []);
@@ -47,7 +117,7 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
   }, [notifOpen]);
 
   // Build dynamic notifications
-  const notifications = [
+  const allNotifications = [
     ...missedTasksNotifs.map((t) => ({
       id: `missed-${t.id}`,
       icon: AlertCircle,
@@ -102,13 +172,50 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
     },
   ];
 
+  // Filter out dismissed
+  const visibleNotifications = allNotifications.filter((n) => !dismissedIds.includes(n.id));
+
+  // Sort: starred first
+  const sortedNotifications = [
+    ...visibleNotifications.filter((n) => starredIds.includes(n.id)),
+    ...visibleNotifications.filter((n) => !starredIds.includes(n.id)),
+  ];
+
+  const handleDeleteNotif = (id: string) => {
+    const newDismissed = [...dismissedIds, id];
+    setDismissedIds(newDismissed);
+    localStorage.setItem(DISMISSED_NOTIF_KEY, JSON.stringify(newDismissed));
+    if (id.startsWith("missed-")) {
+      const newMissed = missedTasksNotifs.filter((t) => `missed-${t.id}` !== id);
+      setMissedTasksNotifs(newMissed);
+      localStorage.setItem("missed_daily_tasks", JSON.stringify(newMissed));
+    }
+  };
+
+  const handleStarNotif = (id: string) => {
+    const newStarred = starredIds.includes(id)
+      ? starredIds.filter((s) => s !== id)
+      : [...starredIds, id];
+    setStarredIds(newStarred);
+    localStorage.setItem(STARRED_NOTIF_KEY, JSON.stringify(newStarred));
+  };
+
+  const handleMarkAllRead = () => {
+    setNotifRead(true);
+    localStorage.setItem(NOTIF_READ_KEY, String(Date.now()));
+    localStorage.removeItem("missed_daily_tasks");
+    setMissedTasksNotifs([]);
+    const allIds = allNotifications.map((n) => n.id);
+    setDismissedIds(allIds);
+    localStorage.setItem(DISMISSED_NOTIF_KEY, JSON.stringify(allIds));
+  };
+
   const handleOpenNotif = () => {
     setNotifOpen((prev) => !prev);
   };
 
   return (
     <>
-      {/* Overlay to close notification dropdown */}
       {notifOpen && (
         <div className="fixed inset-0 z-20" onClick={() => setNotifOpen(false)} />
       )}
@@ -118,14 +225,12 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
         animate={{ opacity: 1, y: 0 }}
         className="mb-8"
       >
-        {/* Top row: badge label + notification + sign out */}
         <div className="flex items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-3">
             <span className="h-2 w-2 rounded-full animate-pulse" style={{ background: `var(--${accent})` }} />
             <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Mind2Care</span>
           </div>
 
-          {/* Right side: notification + sign out */}
           <div className="flex items-center gap-2 relative z-30">
             {/* Notification bell */}
             <div className="relative">
@@ -136,7 +241,11 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
               >
                 <Bell className="h-5 w-5" />
                 {!notifRead && (
-                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-coral" />
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-coral"
+                  />
                 )}
               </button>
 
@@ -154,41 +263,75 @@ export function PageHeader({ title, subtitle, accent = "coral" }: PageHeaderProp
                     <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                       <span className="font-semibold text-sm">Notifications</span>
                       <button
-                        onClick={() => {
-                          setNotifRead(true);
-                          localStorage.removeItem("missed_daily_tasks");
-                          setMissedTasksNotifs([]);
-                        }}
+                        onClick={handleMarkAllRead}
                         className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                       >
-                        Mark all read
+                        Clear all
                       </button>
                     </div>
-                    <div className="divide-y divide-border max-h-72 overflow-y-auto scrollbar-thin">
-                      {notifications.map((n) => {
-                        const Icon = n.icon;
-                        return (
-                          <motion.div
-                            key={n.id}
-                            initial={{ opacity: 0, x: 10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            className="flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
-                          >
-                            <div
-                              className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
-                              style={{ background: `var(--${n.color})` }}
+
+                    <div className="max-h-80 overflow-y-auto scrollbar-thin divide-y divide-border/40">
+                      {sortedNotifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+                          All cleared! You're all caught up ✨
+                        </div>
+                      ) : (
+                        sortedNotifications.map((n) => {
+                          const Icon = n.icon;
+                          const isStarred = starredIds.includes(n.id);
+                          return (
+                            <motion.div
+                              key={n.id}
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, x: 20 }}
+                              className={`group flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors ${isStarred ? "bg-yellow-500/5" : ""}`}
                             >
-                              <Icon className="h-4 w-4" style={{ color: `var(--${n.color}-foreground)` }} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium">{n.title}</div>
-                              <div className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{n.desc}</div>
-                            </div>
-                            <span className="text-xs text-muted-foreground shrink-0 mt-0.5">{n.time}</span>
-                          </motion.div>
-                        );
-                      })}
+                              {/* Icon */}
+                              <div
+                                className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                                style={{ background: `var(--${n.color})` }}
+                              >
+                                <Icon className="h-4 w-4" style={{ color: `var(--${n.color}-foreground)` }} />
+                              </div>
+
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-medium">{n.title}</span>
+                                  {isStarred && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 shrink-0" />}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{n.desc}</div>
+                                <div className="text-xs text-muted-foreground/60 mt-0.5">{n.time}</div>
+                              </div>
+
+                              {/* Action buttons — visible on hover */}
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5">
+                                <button
+                                  onClick={() => handleStarNotif(n.id)}
+                                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                    isStarred
+                                      ? "text-yellow-500 hover:bg-yellow-500/10"
+                                      : "text-muted-foreground hover:text-yellow-500 hover:bg-yellow-500/10"
+                                  }`}
+                                  title={isStarred ? "Unstar" : "Star"}
+                                >
+                                  <Star className={`h-3.5 w-3.5 ${isStarred ? "fill-current" : ""}`} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteNotif(n.id)}
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                  title="Dismiss"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </motion.div>
+                          );
+                        })
+                      )}
                     </div>
+
                     <div className="px-4 py-3 border-t border-border">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <CheckCircle className="h-3.5 w-3.5" />

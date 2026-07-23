@@ -9,12 +9,14 @@ export const Route = createFileRoute("/_app/growth")({
   component: Growth,
 });
 
-/** Format an ISO date string "YYYY-MM-DD" to a nice label like "Jan 13" */
+/** Format an ISO date string "YYYY-MM-DD" to a full precise date like "Jan 13, 2026" */
 function niceDate(isoStr: string | undefined): string {
-  if (!isoStr) return "Soon";
+  if (!isoStr || isoStr === "Soon" || isoStr === "Not yet") return isoStr || "Soon";
   try {
-    const d = new Date(isoStr + "T12:00:00");
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    // Parse as local date (avoid UTC timezone shift by appending noon time)
+    const d = new Date(isoStr.includes("T") ? isoStr : isoStr + "T12:00:00");
+    if (isNaN(d.getTime())) return isoStr;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   } catch {
     return isoStr;
   }
@@ -37,45 +39,61 @@ function Growth() {
   const nextLevelThreshold = 1500;
   const levelProgressPercent = Math.min(100, Math.floor((userProfile.points / nextLevelThreshold) * 100));
 
+  // Find the earliest mood log date
+  const sortedMoodDates = [...moodHistory].map(h => h.date).sort();
+  const firstMoodIsoDate = sortedMoodDates.length > 0 ? sortedMoodDates[0] : undefined;
+
   // Compute first challenge completion date from state
   const firstCompletedChallenge = challenges.find(c => c.status === "completed");
+
+  const uniqueMoodDays = new Set(moodHistory.map(h => h.date));
 
   // Build milestones with dynamic dates from userProfile and moodHistory
   const milestones = [
     {
       id: 1,
       title: "Joined Mind2Care",
-      date: niceDate(userProfile.joinDate),
+      date: userProfile.joinDate ? niceDate(userProfile.joinDate) : "Joined recently",
       done: true,
     },
     {
       id: 2,
       title: "First mood logged",
-      date: moodHistory.length > 0 ? niceDate(userProfile.firstMoodDate || [...moodHistory].reverse()[0]?.date) : "Not yet",
+      date: moodHistory.length > 0
+        ? niceDate(userProfile.firstMoodDate || firstMoodIsoDate)
+        : "Not yet",
       done: moodHistory.length > 0,
     },
     {
       id: 3,
       title: "First 7-day streak",
-      date: new Set(moodHistory.map(h => h.date)).size >= 7 ? niceDate(userProfile.firstWeekDate) : "Soon",
-      done: new Set(moodHistory.map(h => h.date)).size >= 7,
+      date: uniqueMoodDays.size >= 7
+        ? niceDate(userProfile.firstWeekDate)
+        : `${uniqueMoodDays.size}/7 days`,
+      done: uniqueMoodDays.size >= 7,
     },
     {
       id: 4,
       title: "Completed first challenge",
-      date: firstCompletedChallenge ? niceDate(userProfile.firstChallengeDate) : "Soon",
+      date: firstCompletedChallenge
+        ? niceDate(userProfile.firstChallengeDate)
+        : "Not yet",
       done: !!firstCompletedChallenge,
     },
     {
       id: 5,
       title: "30-day mood streak",
-      date: new Set(moodHistory.map(h => h.date)).size >= 30 ? "Achieved!" : `${new Set(moodHistory.map(h => h.date)).size}/30 days`,
-      done: new Set(moodHistory.map(h => h.date)).size >= 30,
+      date: uniqueMoodDays.size >= 30
+        ? "Achieved! 🎉"
+        : `${uniqueMoodDays.size}/30 days`,
+      done: uniqueMoodDays.size >= 30,
     },
     {
       id: 6,
       title: "Reach Sage level",
-      date: userProfile.points >= 1000 ? "Achieved!" : `${userProfile.points}/1000 pts`,
+      date: userProfile.points >= 1000
+        ? "Achieved! 🎉"
+        : `${userProfile.points}/1000 pts`,
       done: userProfile.points >= 1000,
     },
   ];
@@ -148,7 +166,9 @@ function Growth() {
                   {m.done && <span className="text-white text-xs">✓</span>}
                 </div>
                 <div className={`text-sm font-medium ${m.done ? "" : "text-muted-foreground"}`}>{m.title}</div>
-                <div className={`text-xs mt-0.5 ${m.done ? "text-muted-foreground" : "text-muted-foreground/60"}`}>{m.date}</div>
+                <div className={`text-xs mt-0.5 font-medium ${m.done ? "text-primary/70" : "text-muted-foreground/60"}`}>
+                  {m.date}
+                </div>
               </motion.div>
             ))}
           </div>

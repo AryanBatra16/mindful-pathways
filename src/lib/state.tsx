@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { tasks as initialTasks, challenges as initialChallenges, communityPosts as initialCommunityPosts, moodHistory as initialMoodHistory } from "./mock-data";
+import { tasks as initialTasks, challenges as initialChallenges, communityPosts as initialCommunityPosts, moodHistory as initialMoodHistory, DEMO_USER, DEMO_MOOD_HISTORY, DEMO_TASKS, DEMO_COMMUNITY_POSTS, DEMO_SAVED_QUOTES, DEMO_CHALLENGES } from "./mock-data";
 import {
   signupServerFn,
   loginServerFn,
@@ -112,9 +112,11 @@ interface AppContextType {
   communityPosts: CommunityPost[];
   savedQuotes: number[];
   settings: AppSettings;
+  isDemoMode: boolean;
   login: (email: string, password: string) => Promise<AuthResult>;
   signup: (name: string, email: string, password: string) => Promise<AuthResult>;
   logout: () => void;
+  loginAsDemo: () => void;
   updateProfile: (profile: Partial<UserProfile>) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   addTask: (title: string, priority: "high" | "medium" | "low", due: string, challenge: string | null) => void;
@@ -180,7 +182,14 @@ export function getLevelForPoints(points: number): string {
   return "Beginner";
 }
 
+function isDemoActive(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem("demo_mode") === "true";
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
   const [userProfile, setUserProfile] = useState<UserProfile>({
     name: "Guest",
     email: "",
@@ -207,8 +216,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [isLoading, setIsLoading] = useState(true);
 
+  // ─── Load demo mode data ───────────────────────────────────────────────────
+  const loadDemoData = () => {
+    setIsDemoMode(true);
+    setUserProfile({
+      id: DEMO_USER.id,
+      name: DEMO_USER.name,
+      email: DEMO_USER.email,
+      bio: DEMO_USER.bio,
+      points: DEMO_USER.points,
+      level: DEMO_USER.level,
+      avatar: DEMO_USER.avatar,
+      joinDate: DEMO_USER.joinDate,
+      firstMoodDate: DEMO_USER.firstMoodDate,
+      firstWeekDate: DEMO_USER.firstWeekDate,
+      firstChallengeDate: DEMO_USER.firstChallengeDate,
+    });
+    setTasks(DEMO_TASKS);
+    setMoodHistory(DEMO_MOOD_HISTORY);
+    setChallenges(DEMO_CHALLENGES);
+    setCommunityPosts(DEMO_COMMUNITY_POSTS);
+    setSavedQuotes(DEMO_SAVED_QUOTES);
+    setSettings({
+      theme: "Light",
+      fontSize: 16,
+      compactMode: false,
+      nightContrast: false,
+      defaultAnonymous: true,
+      emailInsights: true,
+      dailyReminder: "08:00",
+    });
+  };
+
+  // ─── Login as demo ─────────────────────────────────────────────────────────
+  const loginAsDemo = () => {
+    sessionStorage.setItem("demo_mode", "true");
+    // Set a cookie so route guards pass
+    document.cookie = `session_active=true; Path=/; max-age=2592000; SameSite=Lax`;
+    loadDemoData();
+    setIsLoading(false);
+    if (typeof window !== "undefined") {
+      window.location.href = "/dashboard";
+    }
+  };
+
   // ─── Sync user data from D1 database on mount ──────────────────────────────
   const syncDatabase = async () => {
+    // Check demo mode first
+    if (isDemoActive()) {
+      loadDemoData();
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const user = await getCurrentUserServerFn();
       if (user) {
@@ -408,6 +468,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    // Clear demo mode flag if active
+    if (isDemoActive()) {
+      sessionStorage.removeItem("demo_mode");
+      setIsDemoMode(false);
+      document.cookie = "session_active=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      if (typeof window !== "undefined") {
+        window.location.href = "/signin";
+      }
+      return;
+    }
     await logoutServerFn();
     document.cookie = "session_active=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
     if (typeof window !== "undefined") {
@@ -421,6 +491,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       updatedProfile.level = getLevelForPoints(profile.points);
     }
     setUserProfile((prev) => ({ ...prev, ...updatedProfile }));
+    // Skip server call in demo mode
+    if (isDemoActive()) return;
     await updateUserProfileServerFn({
       data: {
         name: updatedProfile.name,
@@ -434,6 +506,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
+    if (isDemoActive()) return;
     await updateUserProfileServerFn({
       data: {
         theme: newSettings.theme,
@@ -451,6 +524,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const tempId = `temp_${Date.now()}`;
     const newTask: Task = { id: tempId, title, priority, status: "today", due: due || "Today", challenge };
     setTasks((prev) => [newTask, ...prev]);
+    if (isDemoActive()) return;
 
     const res = await addTaskServerFn({
       data: { title, priority, status: "today", due: due || "Today", challenge_id: challenge || undefined },
@@ -462,6 +536,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteTask = async (id: number | string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    if (isDemoActive()) return;
     await deleteTaskServerFn({ data: { taskId: String(id) } });
   };
 
@@ -478,7 +553,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 if (c.title.toLowerCase().includes(t.challenge!.toLowerCase())) {
                   const newProgress = Math.min(100, c.progress + 20);
                   const newStatus = newProgress === 100 ? "completed" : c.status;
-                  saveUserChallengeServerFn({ data: { challengeId: c.id, progress: newProgress, status: newStatus } });
+                  if (!isDemoActive()) {
+                    saveUserChallengeServerFn({ data: { challengeId: c.id, progress: newProgress, status: newStatus } });
+                  }
                   return { ...c, progress: newProgress, status: newStatus };
                 }
                 return c;
@@ -491,6 +568,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
     );
 
+    if (isDemoActive()) return;
     await updateTaskStatusServerFn({ data: { taskId: String(id), status: "completed" } });
   };
 
@@ -510,6 +588,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMoodHistory((prev) => [newLog, ...prev]);
     updateProfile({ points: userProfile.points + 10 });
 
+    if (isDemoActive()) return;
     await addMoodLogServerFn({
       data: {
         emoji: mood.emoji,
@@ -565,13 +644,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       prev.map((c) => {
         if (c.id === id) {
           if (c.status === "available") {
-            saveUserChallengeServerFn({ data: { challengeId: c.id, progress: 0, status: "active" } });
+            if (!isDemoActive()) {
+              saveUserChallengeServerFn({ data: { challengeId: c.id, progress: 0, status: "active" } });
+            }
             return { ...c, status: "active", progress: 0 };
           } else if (c.status === "active") {
             const progress = computeChallengeProgress(c);
             if (progress >= 100) {
               updateProfile({ points: userProfile.points + c.points });
-              saveUserChallengeServerFn({ data: { challengeId: c.id, progress: 100, status: "completed" } });
+              if (!isDemoActive()) {
+                saveUserChallengeServerFn({ data: { challengeId: c.id, progress: 100, status: "completed" } });
+              }
               return { ...c, status: "completed", progress: 100 };
             }
             return { ...c, progress };
@@ -597,6 +680,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
     setCommunityPosts((prev) => [newPost, ...prev]);
     updateProfile({ points: userProfile.points + 5 });
+
+    if (isDemoActive()) return;
 
     await createCommunityPostServerFn({
       data: { category: "Self-care", content, author_name: userProfile.name, anon, color: newPost.color },
@@ -629,11 +714,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
     );
 
+    if (isDemoActive()) return;
     await togglePostLikeServerFn({ data: { postId: String(id) } });
   };
 
   const toggleSaveQuote = async (id: number) => {
     setSavedQuotes((prev) => (prev.includes(id) ? prev.filter((qId) => qId !== id) : [...prev, id]));
+    if (isDemoActive()) return;
     await toggleSaveQuoteServerFn({ data: { quoteId: id } });
   };
 
@@ -654,9 +741,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         communityPosts,
         savedQuotes,
         settings,
+        isDemoMode,
         login,
         signup,
         logout,
+        loginAsDemo,
         updateProfile,
         updateSettings,
         addTask,
