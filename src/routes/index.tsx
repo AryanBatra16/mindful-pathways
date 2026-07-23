@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Sparkles, Heart, MessageCircleHeart, Users, Trophy, BarChart3, Quote, ListTodo, Shield, ArrowRight, Star } from "lucide-react";
 import { BackgroundBlobs } from "@/components/BackgroundBlobs";
+import { useApp } from "@/lib/state";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,6 +28,8 @@ const features = [
 ];
 
 function Landing() {
+  const { loginAsDemo } = useApp();
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
       <BackgroundBlobs />
@@ -43,7 +46,7 @@ function Landing() {
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
             <a href="#features" className="hover:text-primary transition-colors">Features</a>
             <a href="#privacy" className="hover:text-primary transition-colors">Privacy</a>
-            <Link to="/dashboard" className="hover:text-primary transition-colors">Demo</Link>
+            <button onClick={loginAsDemo} className="hover:text-primary transition-colors cursor-pointer">Demo</button>
           </nav>
           <div className="flex items-center gap-2">
             <Link to="/signin" className="px-4 py-2 rounded-xl text-sm font-medium hover:bg-muted transition-colors">Sign In</Link>
@@ -93,9 +96,9 @@ function Landing() {
             Get Started Free
             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
           </Link>
-          <Link to="/dashboard" className="px-6 py-3.5 rounded-2xl glass font-semibold shadow-soft hover:scale-[1.03] transition-transform">
+          <button onClick={loginAsDemo} className="px-6 py-3.5 rounded-2xl glass font-semibold shadow-soft hover:scale-[1.03] transition-transform cursor-pointer">
             Try Demo
-          </Link>
+          </button>
           <Link to="/signin" className="px-6 py-3.5 rounded-2xl font-semibold hover:bg-muted transition-colors">
             Sign In
           </Link>
@@ -203,14 +206,23 @@ function Landing() {
             <p className="text-sm text-muted-foreground">A gentler way to care for your mind, every day.</p>
           </div>
           {[
-            { title: "Product", links: ["Features", "Demo", "Pricing"] },
-            { title: "Support", links: ["Help Center", "Crisis Resources", "Contact"] },
-            { title: "Legal", links: ["Privacy", "Terms", "Cookies"] },
+            { title: "Product", links: [{ label: "Features", href: "#features" }, { label: "Demo", action: "demo" }] },
+            { title: "Legal", links: [{ label: "Privacy", href: "#privacy" }] },
           ].map((col) => (
             <div key={col.title}>
               <h4 className="font-semibold mb-3">{col.title}</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                {col.links.map((l) => <li key={l}><a href="#" className="hover:text-primary transition-colors">{l}</a></li>)}
+                {col.links.map((l: any) => (
+                  <li key={l.label}>
+                    {l.action === "demo" ? (
+                      <button onClick={loginAsDemo} className="hover:text-primary transition-colors cursor-pointer text-left">{l.label}</button>
+                    ) : l.href.startsWith("/") ? (
+                      <Link to={l.href} className="hover:text-primary transition-colors">{l.label}</Link>
+                    ) : (
+                      <a href={l.href} className="hover:text-primary transition-colors">{l.label}</a>
+                    )}
+                  </li>
+                ))}
               </ul>
             </div>
           ))}
