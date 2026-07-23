@@ -136,6 +136,9 @@ export async function signInUser(
   const expiresAt = getSessionExpirationDate();
   const expiresTimestamp = Math.floor(expiresAt.getTime() / 1000);
 
+  // Clear any existing sessions for this user to enforce single active session
+  await db.delete(sessions).where(eq(sessions.user_id, user.id));
+
   await db.insert(sessions).values({
     id: token,
     user_id: user.id,

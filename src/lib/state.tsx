@@ -208,7 +208,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [savedQuotes, setSavedQuotes] = useState<number[]>([]);
 
   const [settings, setSettings] = useState<AppSettings>({
-    theme: "Light",
+    theme: "Dark",
     fontSize: 16,
     compactMode: false,
     nightContrast: false,
@@ -241,7 +241,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCommunityPosts(DEMO_COMMUNITY_POSTS);
     setSavedQuotes(DEMO_SAVED_QUOTES);
     setSettings({
-      theme: "Light",
+      theme: "Dark",
       fontSize: 16,
       compactMode: false,
       nightContrast: false,
@@ -418,6 +418,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return c;
           })
         );
+      } else {
+        // The backend session was invalidated. Force local logout.
+        if (typeof window !== "undefined" && document.cookie.includes("session_active=true")) {
+          document.cookie = "session_active=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          if (window.location.pathname !== "/") {
+            window.location.href = "/";
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to sync database state:", err);
@@ -585,14 +593,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsDemoMode(false);
       document.cookie = "session_active=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
       if (typeof window !== "undefined") {
-        window.location.href = "/signin";
+        window.location.href = "/";
       }
       return;
     }
     await logoutServerFn();
     document.cookie = "session_active=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
     if (typeof window !== "undefined") {
-      window.location.href = "/signin";
+      window.location.href = "/";
     }
   };
 

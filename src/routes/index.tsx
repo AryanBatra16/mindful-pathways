@@ -34,12 +34,12 @@ function Landing() {
       {/* Nav */}
       <header className="relative z-20">
         <div className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
+          <button onClick={() => window.location.reload()} className="flex items-center gap-2 cursor-pointer text-left">
             <div className="h-10 w-10 rounded-xl gradient-primary shadow-glow flex items-center justify-center">
               <Sparkles className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-xl text-gradient">Mind2Care</span>
-          </Link>
+          </button>
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
             <a href="#features" className="hover:text-primary transition-colors">Features</a>
             <a href="#privacy" className="hover:text-primary transition-colors">Privacy</a>

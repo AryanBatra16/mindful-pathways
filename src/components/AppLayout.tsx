@@ -91,12 +91,12 @@ export function AppLayout() {
             </button>
           ) : (
             <>
-              <Link to="/" className="flex items-center gap-2">
+              <button onClick={() => window.location.reload()} className="flex items-center gap-2 cursor-pointer text-left">
                 <div className="h-9 w-9 rounded-xl gradient-primary shadow-glow flex items-center justify-center shrink-0">
                   <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 <span className="font-bold text-lg text-gradient">Mind2Care</span>
-              </Link>
+              </button>
               <div className="flex items-center gap-1">
                 <button onClick={() => setOpen(false)} className="lg:hidden p-1.5 rounded-lg hover:bg-muted">
                   <X className="h-4 w-4" />
@@ -146,7 +146,24 @@ export function AppLayout() {
           })}
         </nav>
 
-        <div className="absolute bottom-4 left-3 right-3">
+        <div className="absolute bottom-4 left-3 right-3 group cursor-pointer">
+          <div className="absolute bottom-full left-0 w-full pb-2 opacity-0 pointer-events-none translate-y-2 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 transition-all z-50">
+            <div className="glass rounded-2xl shadow-glow p-4">
+              <div className="text-center mb-4">
+                <p className="font-bold text-gradient text-lg">{userProfile.points} pts</p>
+                {userProfile.email && <p className="text-xs text-muted-foreground mt-1 truncate">{userProfile.email}</p>}
+                <p className="text-xs text-muted-foreground mt-2 line-clamp-3 leading-relaxed">{userProfile.bio}</p>
+              </div>
+              <button
+                onClick={logout}
+                className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors text-sm font-medium"
+              >
+                <LogOut className="h-4 w-4" />
+                {!isCollapsed && <span>Sign Out</span>}
+              </button>
+            </div>
+          </div>
+
           <div className={cn("glass rounded-2xl shadow-soft transition-all duration-300", isCollapsed ? "p-2" : "p-4")}>
             {isCollapsed ? (
               <div className="flex flex-col items-center gap-3">
@@ -157,36 +174,20 @@ export function AppLayout() {
                 ) : (
                   <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center font-semibold text-white shrink-0">{userInitial}</div>
                 )}
-                <button
-                  onClick={logout}
-                  title="Sign Out"
-                  className="p-2 rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-colors text-muted-foreground shrink-0 cursor-pointer"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
               </div>
             ) : (
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  {isPhoto ? (
-                    <img src={avatarValue} alt="avatar" className="h-10 w-10 rounded-full object-cover shrink-0" />
-                  ) : isEmoji ? (
-                    <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center text-xl shrink-0">{avatarValue}</div>
-                  ) : (
-                    <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center font-semibold text-white shrink-0">{userInitial}</div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{userProfile.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{userProfile.level} Level · {userProfile.points} pts</p>
-                  </div>
+              <div className="flex items-center gap-3 min-w-0">
+                {isPhoto ? (
+                  <img src={avatarValue} alt="avatar" className="h-10 w-10 rounded-full object-cover shrink-0" />
+                ) : isEmoji ? (
+                  <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center text-xl shrink-0">{avatarValue}</div>
+                ) : (
+                  <div className="h-10 w-10 rounded-full gradient-coral-pink flex items-center justify-center font-semibold text-white shrink-0">{userInitial}</div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{userProfile.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{userProfile.level} Level</p>
                 </div>
-                <button
-                  onClick={logout}
-                  title="Sign Out"
-                  className="p-2 rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-colors text-muted-foreground shrink-0 cursor-pointer"
-                >
-                  <LogOut className="h-4 w-4" />
-                </button>
               </div>
             )}
           </div>
