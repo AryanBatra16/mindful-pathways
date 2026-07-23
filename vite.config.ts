@@ -139,6 +139,19 @@ export default defineConfig(async (env) => {
       },
       build: {
         rollupOptions: {
+          external: [
+            "postgres",
+            "drizzle-orm",
+            "drizzle-orm/postgres-js",
+            "drizzle-orm/pg-core",
+            "perf_hooks",
+            "crypto",
+            "stream",
+            "net",
+            "tls",
+            "fs",
+            "os"
+          ],
           output: {
             inlineDynamicImports: true
           }
