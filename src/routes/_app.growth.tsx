@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Sparkles, Trophy, TrendingUp, Lock } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
-import { useApp } from "@/lib/state";
+import { useApp, toISODate } from "@/lib/state";
 
 export const Route = createFileRoute("/_app/growth")({
   head: () => ({ meta: [{ title: "Growth Map — Mind2Care" }] }),
@@ -48,54 +48,79 @@ function Growth() {
 
   const uniqueMoodDays = new Set(moodHistory.map(h => h.date));
 
-  // Build milestones with dynamic dates from userProfile and moodHistory
-  const milestones = [
+  // ─── Build raw milestone definitions ────────────────────────────────────
+  // Each milestone has: title, done flag, and isoDate (for sorting & display)
+  const today = toISODate(new Date());
+
+  const rawMilestones = [
     {
       id: 1,
       title: "Joined Mind2Care",
-      date: userProfile.joinDate ? niceDate(userProfile.joinDate) : "Joined recently",
+      isoDate: userProfile.joinDate || today,
       done: true,
     },
     {
       id: 2,
       title: "First mood logged",
-      date: moodHistory.length > 0
-        ? niceDate(userProfile.firstMoodDate || firstMoodIsoDate)
-        : "Not yet",
+      isoDate: moodHistory.length > 0
+        ? (userProfile.firstMoodDate || firstMoodIsoDate || today)
+        : null,
       done: moodHistory.length > 0,
+      pending: `${uniqueMoodDays.size}/1 moods`,
     },
     {
       id: 3,
       title: "First 7-day streak",
-      date: uniqueMoodDays.size >= 7
-        ? niceDate(userProfile.firstWeekDate)
-        : `${uniqueMoodDays.size}/7 days`,
+      isoDate: uniqueMoodDays.size >= 7
+        ? (userProfile.firstWeekDate || today)
+        : null,
       done: uniqueMoodDays.size >= 7,
+      pending: `${uniqueMoodDays.size}/7 days`,
     },
     {
       id: 4,
       title: "Completed first challenge",
-      date: firstCompletedChallenge
-        ? niceDate(userProfile.firstChallengeDate)
-        : "Not yet",
+      // Use firstChallengeDate if set, otherwise fall back to today (just completed)
+      isoDate: firstCompletedChallenge
+        ? (userProfile.firstChallengeDate || today)
+        : null,
       done: !!firstCompletedChallenge,
+      pending: "No challenge completed yet",
     },
     {
       id: 5,
       title: "30-day mood streak",
-      date: uniqueMoodDays.size >= 30
-        ? "Achieved! 🎉"
-        : `${uniqueMoodDays.size}/30 days`,
+      isoDate: uniqueMoodDays.size >= 30 ? today : null,
       done: uniqueMoodDays.size >= 30,
+      pending: `${uniqueMoodDays.size}/30 days`,
     },
     {
       id: 6,
       title: "Reach Sage level",
-      date: userProfile.points >= 1000
-        ? "Achieved! 🎉"
-        : `${userProfile.points}/1000 pts`,
+      isoDate: userProfile.points >= 1000 ? today : null,
       done: userProfile.points >= 1000,
+      pending: `${userProfile.points}/1000 pts`,
     },
+  ];
+
+  // ─── Sort: completed milestones by date (ascending), pending ones after ──
+  const completedMilestones = rawMilestones
+    .filter(m => m.done && m.isoDate)
+    .sort((a, b) => (a.isoDate! < b.isoDate! ? -1 : a.isoDate! > b.isoDate! ? 1 : a.id - b.id));
+
+  const pendingMilestones = rawMilestones
+    .filter(m => !m.done)
+    .sort((a, b) => a.id - b.id); // keep logical order for pending
+
+  const milestones = [
+    ...completedMilestones.map(m => ({
+      ...m,
+      date: niceDate(m.isoDate!),
+    })),
+    ...pendingMilestones.map(m => ({
+      ...m,
+      date: m.pending || "Soon",
+    })),
   ];
 
   return (

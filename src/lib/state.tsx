@@ -508,7 +508,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Award points and persist
           setUserProfile((prev) => {
             const newPoints = prev.points + c.points;
-            return { ...prev, points: newPoints, level: getLevelForPoints(newPoints) };
+            const isFirstChallenge = !prev.firstChallengeDate;
+            return {
+              ...prev,
+              points: newPoints,
+              level: getLevelForPoints(newPoints),
+              // Record the date this first challenge was completed
+              ...(isFirstChallenge ? { firstChallengeDate: toISODate(new Date()) } : {}),
+            };
           });
           if (!isDemoActive()) {
             saveUserChallengeServerFn({ data: { challengeId: c.id, progress: 100, status: "completed" } });
