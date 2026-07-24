@@ -241,32 +241,6 @@ function Chatbot() {
     setInput("");
     setTyping(true);
 
-    if (isDemoMode) {
-      // Simulate a response in demo mode
-      await new Promise((res) => setTimeout(res, 1200));
-      const demoReplies = [
-        "I hear you, and I'm really glad you shared that with me. 🌸 What's been on your mind most lately?",
-        "That sounds like a lot to carry. You're doing great just by checking in with yourself. 💙",
-        "Thank you for sharing — it takes courage to open up. Would you like to try a breathing exercise together?",
-        "Every feeling you have is valid. Be gentle with yourself today. 🌿",
-        "I'm here for you. Sometimes just putting words to how we feel is a big first step. 💛",
-      ];
-      const reply = demoReplies[Math.floor(Math.random() * demoReplies.length)];
-      const assistantMsg: Msg = {
-        role: "assistant",
-        text: reply,
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      };
-      setSessions((prev) =>
-        prev.map((s) =>
-          s.id !== activeSessionId
-            ? s
-            : { ...s, messages: [...s.messages, assistantMsg], updatedAt: Date.now() }
-        )
-      );
-      setTyping(false);
-      return;
-    }
 
     try {
       const response = await getGeminiResponseServerFn({ data: { userMessage: text } });
