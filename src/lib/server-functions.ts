@@ -197,14 +197,22 @@ export const saveChatbotMessageServerFn = createServerFn({ method: "POST" })
 export const getGeminiResponseServerFn = createServerFn({ method: "POST" })
   .inputValidator((data: { userMessage: string }) => data)
   .handler(async ({ data: { userMessage } }) => {
-    const user = await getAuthenticatedUser();
-    const db = await getContextDb();
+    let user: any = null;
+    let db: any = null;
+    let history: any[] = [];
 
-    // 1. Save user message to database
-    await saveChatbotMessage(db, user.id, { role: "user", text: userMessage });
+    try {
+      user = await getAuthenticatedUser();
+      db = await getContextDb();
+      await saveChatbotMessage(db, user.id, { role: "user", text: userMessage }).catch(() => {});
+      history = await getChatbotMessages(db, user.id).catch(() => []);
+    } catch {
+      // Demo / unauthenticated user: gracefully fallback without throwing
+    }
 
-    // 2. Fetch entire message history to construct context
-    const history = await getChatbotMessages(db, user.id);
+    if (history.length === 0) {
+      history = [{ role: "user", text: userMessage }];
+    }
 
     // 3. Format history for Gemini API (alternating user and model roles)
     const contents: any[] = [];
@@ -227,7 +235,9 @@ export const getGeminiResponseServerFn = createServerFn({ method: "POST" })
 
     if (!apiKey || apiKey === "YOUR_GEMINI_API_KEY_HERE") {
       const fallbackMsg = "I'm here for you! (Note: Gemini API Key is not yet configured. Please add it to your environment variables to enable full AI responses.)";
-      await saveChatbotMessage(db, user.id, { role: "assistant", text: fallbackMsg });
+      if (user && db) {
+        await saveChatbotMessage(db, user.id, { role: "assistant", text: fallbackMsg }).catch(() => {});
+      }
       return fallbackMsg;
     }
 
@@ -272,7 +282,9 @@ STRICT DIRECTIVES:
         } else if (response.status >= 500) {
           userFriendlyMsg = `Google Gemini service is temporarily unavailable (Status ${response.status}). Please try again in a few moments.`;
         }
-        await saveChatbotMessage(db, user.id, { role: "assistant", text: userFriendlyMsg });
+        if (user && db) {
+          await saveChatbotMessage(db, user.id, { role: "assistant", text: userFriendlyMsg }).catch(() => {});
+        }
         return userFriendlyMsg;
       }
 
@@ -281,13 +293,17 @@ STRICT DIRECTIVES:
         result.candidates?.[0]?.content?.parts?.[0]?.text || "I am here to support you.";
 
       // 6. Save assistant reply to database
-      await saveChatbotMessage(db, user.id, { role: "assistant", text: assistantReply });
+      if (user && db) {
+        await saveChatbotMessage(db, user.id, { role: "assistant", text: assistantReply }).catch(() => {});
+      }
 
       return assistantReply;
     } catch (e: any) {
       console.error("Network/Fetch Gemini call failed:", e);
       const failMsg = "I couldn't reach the server. Please check your internet connection.";
-      await saveChatbotMessage(db, user.id, { role: "assistant", text: failMsg });
+      if (user && db) {
+        await saveChatbotMessage(db, user.id, { role: "assistant", text: failMsg }).catch(() => {});
+      }
       return failMsg;
     }
   });
