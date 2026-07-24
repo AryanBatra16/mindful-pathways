@@ -255,57 +255,75 @@ STRICT DIRECTIVES:
       ],
     };
 
-    // 5. Query Gemini API with error safety
-    try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents,
-            systemInstruction,
-          }),
-        }
-      );
+    // 5. Query Gemini API with automatic retry and model fallback on 503 errors
+    const fetchGeminiWithRetry = async () => {
+      const models = ["gemini-3.6-flash", "gemini-3.5-flash-lite"];
+      let lastRes: Response | null = null;
+      let lastErrText = "";
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Gemini API Error details:", response.status, errorText);
-        let userFriendlyMsg = `Gemini API Error (Status ${response.status}): ${errorText}`;
-        if (response.status === 429) {
-          userFriendlyMsg = "Quota or rate limit reached for the Gemini API (Status 429). Please wait a moment before trying again.";
-        } else if (response.status === 400 || response.status === 403) {
-          userFriendlyMsg = `Invalid or unauthorized Gemini API key (Status ${response.status}). Please check your GEMINI_API_KEY environment variable on Render. Details: ${errorText}`;
-        } else if (response.status === 404) {
-          userFriendlyMsg = `Model not found (Status 404). Details: ${errorText}`;
-        } else if (response.status >= 500) {
-          userFriendlyMsg = `Google Gemini service is temporarily unavailable (Status ${response.status}). Please try again in a few moments.`;
+      for (const model of models) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const res = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents, systemInstruction }),
+              }
+            );
+
+            if (res.ok) return { ok: true, response: res };
+
+            lastRes = res;
+            lastErrText = await res.text();
+
+            if (res.status === 503 || res.status >= 500) {
+              await new Promise((r) => setTimeout(r, 1000));
+            } else {
+              break;
+            }
+          } catch (err: any) {
+            lastErrText = err?.message || String(err);
+            await new Promise((r) => setTimeout(r, 1000));
+          }
         }
-        if (user && db) {
-          await saveChatbotMessage(db, user.id, { role: "assistant", text: userFriendlyMsg }).catch(() => {});
-        }
-        return userFriendlyMsg;
       }
+      return { ok: false, response: lastRes, errorText: lastErrText };
+    };
 
-      const result = (await response.json()) as any;
-      const assistantReply =
-        result.candidates?.[0]?.content?.parts?.[0]?.text || "I am here to support you.";
+    const apiResult = await fetchGeminiWithRetry();
 
-      // 6. Save assistant reply to database
+    if (!apiResult.ok) {
+      const status = apiResult.response?.status || 503;
+      const errorText = apiResult.errorText;
+      console.error("Gemini API Error details:", status, errorText);
+      let userFriendlyMsg = `Gemini API Error (Status ${status}): ${errorText}`;
+      if (status === 429) {
+        userFriendlyMsg = "Quota or rate limit reached for the Gemini API (Status 429). Please wait a moment before trying again.";
+      } else if (status === 400 || status === 403) {
+        userFriendlyMsg = `Invalid or unauthorized Gemini API key (Status ${status}). Please check your GEMINI_API_KEY environment variable on Render. Details: ${errorText}`;
+      } else if (status === 404) {
+        userFriendlyMsg = `Model not found (Status 404). Details: ${errorText}`;
+      } else if (status >= 500) {
+        userFriendlyMsg = `Google Gemini service is temporarily unavailable (Status ${status}). Please try again in a few moments.`;
+      }
       if (user && db) {
-        await saveChatbotMessage(db, user.id, { role: "assistant", text: assistantReply }).catch(() => {});
+        await saveChatbotMessage(db, user.id, { role: "assistant", text: userFriendlyMsg }).catch(() => {});
       }
-
-      return assistantReply;
-    } catch (e: any) {
-      console.error("Network/Fetch Gemini call failed:", e);
-      const failMsg = "I couldn't reach the server. Please check your internet connection.";
-      if (user && db) {
-        await saveChatbotMessage(db, user.id, { role: "assistant", text: failMsg }).catch(() => {});
-      }
-      return failMsg;
+      return userFriendlyMsg;
     }
+
+    const result = (await apiResult.response!.json()) as any;
+    const assistantReply =
+      result.candidates?.[0]?.content?.parts?.[0]?.text || "I am here to support you.";
+
+    // 6. Save assistant reply to database
+    if (user && db) {
+      await saveChatbotMessage(db, user.id, { role: "assistant", text: assistantReply }).catch(() => {});
+    }
+
+    return assistantReply;
   });
 
 // ─── Saved Quotes Server Functions ───────────────────────────────────────────
