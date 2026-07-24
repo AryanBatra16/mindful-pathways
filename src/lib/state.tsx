@@ -357,9 +357,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         // Fetch Mood History
         const dbMoods = await getMoodHistoryServerFn();
+        const parseDate = (d: any) => {
+          if (!d) return new Date();
+          if (d instanceof Date) return d;
+          if (typeof d === "number") return new Date(d > 1e11 ? d : d * 1000);
+          return new Date(d);
+        };
         setMoodHistory(
           dbMoods.map((m: any) => {
-            const dateObj = m.created_at ? new Date(m.created_at * 1000) : new Date();
+            const dateObj = parseDate(m.created_at);
             const matchingMood =
               m.label === "Joyful"
                 ? { emoji: "😄", label: "Joyful", value: 5, color: "green" }

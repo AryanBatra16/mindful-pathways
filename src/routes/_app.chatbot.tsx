@@ -144,13 +144,21 @@ function Chatbot() {
             title: getSessionTitle(
               dbMsgs.map((m: any) => ({ role: m.role as "user" | "assistant", text: m.text, time: "" }))
             ),
-            messages: dbMsgs.map((m: any) => ({
-              role: m.role as "user" | "assistant",
-              text: m.text,
-              time: m.created_at
-                ? new Date(m.created_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            })),
+            messages: dbMsgs.map((m: any) => {
+              const parseDate = (d: any) => {
+                if (!d) return new Date();
+                if (d instanceof Date) return d;
+                if (typeof d === "number") return new Date(d > 1e11 ? d : d * 1000);
+                return new Date(d);
+              };
+              return {
+                role: m.role as "user" | "assistant",
+                text: m.text,
+                time: m.created_at
+                  ? parseDate(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              };
+            }),
             createdAt: Date.now() - 24 * 60 * 60 * 1000,
             updatedAt: Date.now(),
           };
