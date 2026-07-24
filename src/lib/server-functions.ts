@@ -262,11 +262,15 @@ STRICT DIRECTIVES:
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Gemini API Error details:", response.status, errorText);
-        let userFriendlyMsg = "I'm having trouble connecting right now. Please verify your Gemini API key.";
-        if (response.status === 400 || response.status === 403) {
-          userFriendlyMsg = "It looks like your Gemini API Key is invalid or has expired. Please check your key in Google AI Studio and update the .env file.";
+        let userFriendlyMsg = `Gemini API Error (Status ${response.status}): ${errorText}`;
+        if (response.status === 429) {
+          userFriendlyMsg = "Quota or rate limit reached for the Gemini API (Status 429). Please wait a moment before trying again.";
+        } else if (response.status === 400 || response.status === 403) {
+          userFriendlyMsg = `Invalid or unauthorized Gemini API key (Status ${response.status}). Please check your GEMINI_API_KEY environment variable on Render. Details: ${errorText}`;
         } else if (response.status === 404) {
-          userFriendlyMsg = `The selected model was not found (status 404). Details: ${errorText}`;
+          userFriendlyMsg = `Model not found (Status 404). Details: ${errorText}`;
+        } else if (response.status >= 500) {
+          userFriendlyMsg = `Google Gemini service is temporarily unavailable (Status ${response.status}). Please try again in a few moments.`;
         }
         await saveChatbotMessage(db, user.id, { role: "assistant", text: userFriendlyMsg });
         return userFriendlyMsg;
